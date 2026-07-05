@@ -38,6 +38,7 @@ const PRIMER_PROMPT =
   'Take a quick look at the project. What register is this? Run the impeccable context loader once if you need to.';
 
 const VERBOSE = process.env.IMPECCABLE_SKILL_BEHAVIOR_VERBOSE === '1';
+const UNAVAILABLE_MODELS = new Map();
 
 function logTrace(label, scenario, model, trace, extras = {}) {
   if (!VERBOSE) return;
@@ -45,6 +46,47 @@ function logTrace(label, scenario, model, trace, extras = {}) {
   console.error(
     `\n[${label}] ${scenario} (${model})\n${JSON.stringify({ ...summary, ...extras }, null, 2)}\n`,
   );
+}
+
+function providerUnavailableReason(error) {
+  if (!error) return null;
+  const message = String(error);
+  if (
+    /exceeded your current quota/i.test(message) ||
+    /insufficient[_\s-]?quota/i.test(message) ||
+    /billing/i.test(message)
+  ) {
+    return 'provider quota/billing is unavailable';
+  }
+  if (
+    /invalid[_\s-]?api[_\s-]?key/i.test(message) ||
+    /incorrect api key/i.test(message) ||
+    /unauthorized/i.test(message) ||
+    /authentication/i.test(message)
+  ) {
+    return 'provider authentication is unavailable';
+  }
+  return null;
+}
+
+function skipUnavailableModel(t, modelId, result = null) {
+  const known = UNAVAILABLE_MODELS.get(modelId);
+  if (known) {
+    t.skip(`${modelId}: ${known}`);
+    return true;
+  }
+  const reason = providerUnavailableReason(result?.error);
+  if (!reason) return false;
+  UNAVAILABLE_MODELS.set(modelId, reason);
+  t.skip(`${modelId}: ${reason}`);
+  return true;
+}
+
+async function runScenarioTurn(t, modelId, options) {
+  if (skipUnavailableModel(t, modelId)) return null;
+  const result = await runTurn(options);
+  if (skipUnavailableModel(t, modelId, result)) return null;
+  return result;
 }
 
 for (const modelId of resolveModelList()) {
@@ -58,15 +100,17 @@ for (const modelId of resolveModelList()) {
     }
     const model = getModel(modelId);
 
-    it('scenario 1: no PRODUCT.md / DESIGN.md', async () => {
+    it('scenario 1: no PRODUCT.md / DESIGN.md', async (t) => {
       const workspace = prepareWorkspace({ files: {} });
       try {
-        const { trace, text } = await runTurn({
+        const result = await runScenarioTurn(t, modelId, {
           workspace,
           model,
           userPrompt: CRAFT_PROMPT,
           maxSteps: 6,
         });
+        if (!result) return;
+        const { trace, text } = result;
         logTrace('S1', 'no-context', modelId, trace, { textSample: text.slice(0, 400) });
         // Agent runs context.mjs, sees NO_PRODUCT_MD directive, loads
         // init.md and follows it. Accept either Read or bash `cat` for
@@ -98,17 +142,19 @@ for (const modelId of resolveModelList()) {
       }
     });
 
-    it('scenario 2: PRODUCT.md only', async () => {
+    it('scenario 2: PRODUCT.md only', async (t) => {
       const workspace = prepareWorkspace({
         files: { 'PRODUCT.md': PRODUCT_MD_SAMPLE },
       });
       try {
-        const { trace, text } = await runTurn({
+        const result = await runScenarioTurn(t, modelId, {
           workspace,
           model,
           userPrompt: CRAFT_PROMPT,
           maxSteps: 6,
         });
+        if (!result) return;
+        const { trace, text } = result;
         logTrace('S2', 'product-only', modelId, trace, { textSample: text.slice(0, 400) });
         const loadCalls = bashCommandsMatching(trace, 'context.mjs');
         assert.ok(
@@ -128,17 +174,19 @@ for (const modelId of resolveModelList()) {
       }
     });
 
-    it('scenario 3: PRODUCT.md + DESIGN.md', async () => {
+    it('scenario 3: PRODUCT.md + DESIGN.md', async (t) => {
       const workspace = prepareWorkspace({
         files: { 'PRODUCT.md': PRODUCT_MD_SAMPLE, 'DESIGN.md': DESIGN_MD_SAMPLE },
       });
       try {
-        const { trace, text } = await runTurn({
+        const result = await runScenarioTurn(t, modelId, {
           workspace,
           model,
           userPrompt: CRAFT_PROMPT,
           maxSteps: 6,
         });
+        if (!result) return;
+        const { trace, text } = result;
         logTrace('S3', 'product-and-design', modelId, trace, { textSample: text.slice(0, 400) });
         const loadCalls = bashCommandsMatching(trace, 'context.mjs');
         assert.ok(
@@ -171,19 +219,20 @@ for (const modelId of resolveModelList()) {
       }
     });
 
-    it('scenario 4: context already loaded in prior turn', async () => {
+    it('scenario 4: context already loaded in prior turn', async (t) => {
       const workspace = prepareWorkspace({
         files: { 'PRODUCT.md': PRODUCT_MD_SAMPLE, 'DESIGN.md': DESIGN_MD_SAMPLE },
       });
       try {
         // Turn 1: prime the conversation so context.mjs gets run and its
         // output enters the message history.
-        const turn1 = await runTurn({
+        const turn1 = await runScenarioTurn(t, modelId, {
           workspace,
           model,
           userPrompt: PRIMER_PROMPT,
           maxSteps: 5,
         });
+        if (!turn1) return;
         logTrace('S4-T1', 'primer', modelId, turn1.trace, { textSample: turn1.text.slice(0, 200) });
         const turn1Loads = bashCommandsMatching(turn1.trace, 'context.mjs');
         assert.ok(
@@ -193,13 +242,14 @@ for (const modelId of resolveModelList()) {
 
         // Turn 2: the real ask. The skill says "skip if you've already
         // loaded it". Verify the agent honors that.
-        const turn2 = await runTurn({
+        const turn2 = await runScenarioTurn(t, modelId, {
           workspace,
           model,
           userPrompt: 'Now, /impeccable craft a landing page based on what you saw.',
           priorMessages: turn1.responseMessages,
           maxSteps: 5,
         });
+        if (!turn2) return;
         logTrace('S4-T2', 'follow-up', modelId, turn2.trace, { textSample: turn2.text.slice(0, 400) });
         const turn2Loads = bashCommandsMatching(turn2.trace, 'context.mjs');
         assert.equal(
@@ -224,7 +274,7 @@ for (const modelId of resolveModelList()) {
       }
     });
 
-    it('scenario 5: PRODUCT.md WITHOUT register field (cascade via task cue)', async () => {
+    it('scenario 5: PRODUCT.md WITHOUT register field (cascade via task cue)', async (t) => {
       // PRODUCT.md has no `## Register` section, so context.mjs cannot
       // detect the register and emits a generic "pick by cascade"
       // directive. The agent must infer brand from the user's task cue
@@ -234,12 +284,14 @@ for (const modelId of resolveModelList()) {
         files: { 'PRODUCT.md': PRODUCT_MD_SAMPLE_NO_REGISTER },
       });
       try {
-        const { trace, text } = await runTurn({
+        const result = await runScenarioTurn(t, modelId, {
           workspace,
           model,
           userPrompt: CRAFT_PROMPT,
           maxSteps: 6,
         });
+        if (!result) return;
+        const { trace, text } = result;
         logTrace('S5', 'no-register-field', modelId, trace, { textSample: text.slice(0, 400) });
         const loadCalls = bashCommandsMatching(trace, 'context.mjs');
         assert.ok(
@@ -258,7 +310,7 @@ for (const modelId of resolveModelList()) {
       }
     });
 
-    it('scenario 6: sub-command routing (`/impeccable polish` loads polish.md)', async () => {
+    it('scenario 6: sub-command routing (`/impeccable polish` loads polish.md)', async (t) => {
       const workspace = prepareWorkspace({
         files: {
           'PRODUCT.md': PRODUCT_MD_SAMPLE,
@@ -267,12 +319,14 @@ for (const modelId of resolveModelList()) {
         },
       });
       try {
-        const { trace, text } = await runTurn({
+        const result = await runScenarioTurn(t, modelId, {
           workspace,
           model,
           userPrompt: '/impeccable polish index.html',
           maxSteps: 6,
         });
+        if (!result) return;
+        const { trace, text } = result;
         logTrace('S6', 'polish-routing', modelId, trace, { textSample: text.slice(0, 300) });
         assert.ok(
           fileLoaded(trace, 'polish.md'),
@@ -284,7 +338,7 @@ for (const modelId of resolveModelList()) {
       }
     });
 
-    it('scenario 7: sub-command routing (`/impeccable audit` loads audit.md)', async () => {
+    it('scenario 7: sub-command routing (`/impeccable audit` loads audit.md)', async (t) => {
       const workspace = prepareWorkspace({
         files: {
           'PRODUCT.md': PRODUCT_MD_SAMPLE,
@@ -293,12 +347,14 @@ for (const modelId of resolveModelList()) {
         },
       });
       try {
-        const { trace, text } = await runTurn({
+        const result = await runScenarioTurn(t, modelId, {
           workspace,
           model,
           userPrompt: '/impeccable audit index.html',
           maxSteps: 6,
         });
+        if (!result) return;
+        const { trace, text } = result;
         logTrace('S7', 'audit-routing', modelId, trace, { textSample: text.slice(0, 300) });
         assert.ok(
           fileLoaded(trace, 'audit.md'),
@@ -310,7 +366,7 @@ for (const modelId of resolveModelList()) {
       }
     });
 
-    it('scenario 8: existing SvelteKit project (agent explores design system)', async () => {
+    it('scenario 8: existing SvelteKit project (agent explores design system)', async (t) => {
       const workspace = prepareWorkspace({
         files: {
           'PRODUCT.md': PRODUCT_MD_SAMPLE,
@@ -319,12 +375,14 @@ for (const modelId of resolveModelList()) {
         },
       });
       try {
-        const { trace, text } = await runTurn({
+        const result = await runScenarioTurn(t, modelId, {
           workspace,
           model,
           userPrompt: '/impeccable polish src/routes/+page.svelte',
           maxSteps: 8,
         });
+        if (!result) return;
+        const { trace, text } = result;
         logTrace('S8', 'existing-project', modelId, trace, { textSample: text.slice(0, 400) });
         // Setup step 2: familiarize with existing design system. The
         // agent should read at least one project code file (CSS / tokens /
@@ -343,7 +401,7 @@ for (const modelId of resolveModelList()) {
       }
     });
 
-    it('scenario 9: update-available directive is surfaced, never auto-run', async () => {
+    it('scenario 9: update-available directive is surfaced, never auto-run', async (t) => {
       // context.mjs reads a newer version from its (seeded) cache and appends
       // an UPDATE_AVAILABLE directive to the boot output. The agent must
       // surface it and keep working, but must NOT run `npx impeccable update`
@@ -362,13 +420,15 @@ for (const modelId of resolveModelList()) {
         skillVersion: '3.5.0',
       });
       try {
-        const { trace, text } = await runTurn({
+        const result = await runScenarioTurn(t, modelId, {
           workspace,
           model,
           userPrompt: '/impeccable polish index.html',
           maxSteps: 6,
           env: { IMPECCABLE_UPDATE_CACHE: path.join(workspace, '.impeccable-update.json') },
         });
+        if (!result) return;
+        const { trace, text } = result;
         logTrace('S9', 'update-available', modelId, trace, { textSample: text.slice(0, 400) });
 
         // Boot ran, so the directive entered the agent's view.

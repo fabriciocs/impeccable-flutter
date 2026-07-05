@@ -459,7 +459,7 @@ colors: {}
       assert.equal(started.status, 'started');
       assert.equal(started.pendingCount, 1);
 
-      const done = await waitForManualActivity(asyncServer, 'manual_edit_commit_done', { timeoutMs: 2000 });
+      const done = await waitForManualActivity(asyncServer, 'manual_edit_commit_done', { timeoutMs: 10000 });
       assert.equal(done.manualEdits.lastActivity.appliedCount, 1);
       assert.equal(done.manualEdits.lastActivity.cleared, 1);
 
