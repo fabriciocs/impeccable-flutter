@@ -14,6 +14,16 @@ Aligning the feature to the design system is **not optional**. Polish without al
 
 If a design system exists, polish **must** align the feature with it. If none exists, polish against the conventions visible in the codebase. **If anything about the system is ambiguous, ask. Never guess at design system principles.**
 
+### Flutter/Dart Design System Discovery
+
+For Flutter targets, discover the system through `pubspec.yaml`, `lib/main.dart`, app-level `ThemeData`, `ColorScheme`, `TextTheme`, component themes, shared widgets, and any `ThemeExtension` or token files. Name drift in Flutter terms:
+
+- **Missing theme role**: the value belongs in `ColorScheme`, `TextTheme`, component themes, or a project token/extension.
+- **One-off widget implementation**: a shared widget or Material component exists but the feature rebuilt it locally.
+- **Conceptual misalignment**: the flow, navigation, density, or component state model diverges from neighboring Flutter screens.
+
+Prefer theme-level fixes and small named widgets over copying local `Container`, `TextStyle`, radius, and padding values through the tree.
+
 ## Pre-Polish Assessment
 
 Understand the current state and goals before touching anything:
@@ -108,6 +118,8 @@ Every interactive element needs all states:
 
 **Missing states create confusion and broken experiences**.
 
+For Flutter, check Material states (`hovered`, `focused`, `pressed`, `disabled`, `selected`, `error`, `loading`) through component themes or explicit state handling. Custom `GestureDetector` / `InkWell` regions need visual feedback plus `Semantics`, `Tooltip`, focus behavior, and enough hit area.
+
 ### Micro-interactions & Transitions
 
 - **Smooth transitions**: All state changes animated appropriately (150-300ms)
@@ -176,6 +188,7 @@ Every interactive element needs all states:
 - **Consistent naming**: Variables and functions follow conventions
 - **Type safety**: No TypeScript `any` or ignored errors
 - **Accessibility**: Proper ARIA labels and semantic HTML
+- **Flutter quality**: Prefer `const` constructors, small named widgets, project theme roles, and `flutter analyze` clean output when the SDK is available
 
 ## Polish Checklist
 
@@ -230,6 +243,7 @@ Before marking as done:
 - **Compare to design**: Match intended design.
 - **Check all states**: Don't just test happy path.
 - **Treat automation carefully**: Run detector or QA commands when they are available and relevant, fix their defects, but never cite a clean result as proof that the work is polished.
+- **Validate Flutter targets**: Run `flutter analyze` and `flutter test` when available. Use existing widget or golden tests for UI confidence; do not create or update golden baselines without a clear project convention or user request.
 
 ## Clean Up
 

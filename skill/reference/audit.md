@@ -2,6 +2,18 @@ Run systematic **technical** quality checks and generate a comprehensive report.
 
 This is a code-level audit, not a design critique. Check what's measurable and verifiable in the implementation.
 
+## Flutter/Dart Audit Mode
+
+If the target is a Flutter/Dart project or file (`pubspec.yaml`, `lib/main.dart`, `*.dart`, or Flutter Web signals), audit the widget source directly instead of forcing HTML/CSS heuristics onto it.
+
+- Accessibility maps to `Semantics`, `Tooltip`, focus traversal, keyboard activation, labels for custom controls, text scaling, and touch target size.
+- Theming maps to `ThemeData`, `ColorScheme`, `TextTheme`, component themes, and whether styles are local hard-coded `TextStyle`, `Color`, radius, or padding values.
+- Responsive behavior maps to constraints, `LayoutBuilder`, `MediaQuery`, adaptive navigation, `Flexible` / `Expanded`, scroll behavior, orientation, and overflow handling.
+- Anti-patterns include over-rounded cards, generic purple/cyan gradients, decorative gradient text, gray text over colored surfaces, nested cards, repeated local padding, and custom tap regions without semantics.
+- Flutter Web URL audits inspect rendered output only. If the page is canvas-heavy, browser tooling may not reveal source-level semantics, so pair URL evidence with Dart source review when available.
+
+When the Flutter SDK and project dependencies are available, validate findings with `flutter analyze` and `flutter test`. Use existing widget or golden tests as evidence when present; do not update golden baselines unless the user asked for that change.
+
 ## Diagnostic Scan
 
 Run comprehensive checks across 5 dimensions. Score each dimension 0-4 using the criteria below.
@@ -15,6 +27,7 @@ Run comprehensive checks across 5 dimensions. Score each dimension 0-4 using the
 - **Semantic HTML**: Improper heading hierarchy, missing landmarks, divs instead of buttons
 - **Alt text**: Missing or poor image descriptions
 - **Form issues**: Inputs without labels, poor error messaging, missing required indicators
+- **Flutter semantics**: Custom `GestureDetector`, `InkWell`, icon-only controls, or painted widgets without `Semantics`, labels, `Tooltip`, focus behavior, or a keyboard path
 
 **Score 0-4**: 0=Inaccessible (fails WCAG A), 1=Major gaps (few ARIA labels, no keyboard nav), 2=Partial (some a11y effort, significant gaps), 3=Good (WCAG AA mostly met, minor gaps), 4=Excellent (WCAG AA fully met, approaches AAA)
 
@@ -47,6 +60,7 @@ Run comprehensive checks across 5 dimensions. Score each dimension 0-4 using the
 - **Horizontal scroll**: Content overflow on narrow viewports
 - **Text scaling**: Layouts that break when text size increases
 - **Missing breakpoints**: No mobile/tablet variants
+- **Flutter constraint issues**: `Row` / `Column` overflow, fixed pixel sizing, missing `Flexible` / `Expanded`, brittle `MediaQuery` branching, or layouts that fail with larger text scale
 
 **Score 0-4**: 0=Desktop-only (breaks on mobile), 1=Major issues (some breakpoints, many failures), 2=Partial (works on mobile, rough edges), 3=Good (responsive, minor touch target or overflow issues), 4=Excellent (fluid, all viewports, proper touch targets)
 

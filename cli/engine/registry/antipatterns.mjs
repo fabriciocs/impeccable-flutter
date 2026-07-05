@@ -209,6 +209,78 @@ const ANTIPATTERNS = [
     skillSection: 'Imagery',
     skillGuideline: 'broken image references',
   },
+  {
+    id: 'flutter-over-rounded-card',
+    category: 'slop',
+    name: 'Flutter over-rounded card or panel',
+    description:
+      'Flutter card, panel, container, or input uses BorderRadius.circular(32+) — a common generated-UI tell. Use a smaller radius unless the shape is intentionally pill-like.',
+    skillSection: 'Flutter',
+    skillGuideline: 'avoid BorderRadius.circular(32+) on cards and panels',
+  },
+  {
+    id: 'flutter-ai-gradient-container',
+    category: 'slop',
+    name: 'Flutter AI gradient container',
+    description:
+      'Flutter container or card uses a purple/cyan/violet LinearGradient as decoration. Use a palette from the app theme or remove the generic gradient.',
+    skillSection: 'Flutter',
+    skillGuideline: 'avoid generic purple/cyan gradients in Flutter surfaces',
+  },
+  {
+    id: 'flutter-gradient-text',
+    category: 'slop',
+    name: 'Flutter gradient text',
+    description:
+      'ShaderMask or Paint shader is used to create decorative gradient text. Use solid themed text color and hierarchy instead.',
+    skillSection: 'Flutter',
+    skillGuideline: 'avoid decorative gradient text',
+  },
+  {
+    id: 'flutter-hardcoded-text-style',
+    category: 'quality',
+    name: 'Flutter hardcoded TextStyle scale',
+    description:
+      'Repeated local TextStyle(fontSize:) declarations bypass ThemeData and TextTheme. Move typography into the app theme or reuse Theme.of(context).textTheme.',
+    skillSection: 'Flutter',
+    skillGuideline: 'prefer TextTheme over repeated local TextStyle(fontSize:)',
+  },
+  {
+    id: 'flutter-grey-on-color',
+    category: 'quality',
+    name: 'Flutter grey on colored surface',
+    description:
+      'Colors.grey text or icon color appears on an obvious colored Flutter surface. Use ColorScheme roles or a readable shade derived from the surface.',
+    skillSection: 'Flutter',
+    skillGuideline: 'avoid grey text on colored surfaces',
+  },
+  {
+    id: 'flutter-nested-card-container',
+    category: 'slop',
+    name: 'Flutter nested card/container',
+    description:
+      'Decorative cards or containers are nested inside decorative cards or containers. Flatten the hierarchy with spacing, typography, or dividers.',
+    skillSection: 'Flutter',
+    skillGuideline: 'avoid nested cards and decorative containers',
+  },
+  {
+    id: 'flutter-missing-semantics-action',
+    category: 'quality',
+    name: 'Flutter custom action missing semantics',
+    description:
+      'GestureDetector or InkWell creates a custom action without nearby Semantics, Tooltip, or accessible label. Add semantic intent and focusable affordance.',
+    skillSection: 'Flutter',
+    skillGuideline: 'custom controls need Semantics, Tooltip, or labels',
+  },
+  {
+    id: 'flutter-monotonous-padding',
+    category: 'slop',
+    name: 'Flutter monotonous padding',
+    description:
+      'EdgeInsets.all(16) is repeated through nested Flutter layout. Vary spacing by relationship and use design-system spacing roles.',
+    skillSection: 'Flutter',
+    skillGuideline: 'avoid repeating identical EdgeInsets at every level',
+  },
 
   // ── Quality: general design and accessibility issues ──
   {
@@ -414,6 +486,7 @@ const ANTIPATTERNS = [
 const RULE_ENGINE_SUPPORT = {
   regex: new Set(['source', 'page-analyzer']),
   'static-html': new Set(['element', 'page']),
+  'flutter-dart': new Set(['source']),
   browser: new Set(['element', 'page', 'layout']),
   visual: new Set(['visual-contrast']),
 };

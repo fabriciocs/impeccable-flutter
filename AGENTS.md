@@ -6,33 +6,33 @@
 
 ## Build, Test, and Development Commands
 
-- `bun run dev` - start the local Bun server.
-- `bun run build` - source-first build: regenerate `dist/`, derived site assets, and validation output without syncing tracked harness folders.
-- `bun run build:release` - release/distribution build: run the full build and sync tracked root harness folders plus `plugin/`.
-- `bun run rebuild` - clean and rebuild everything from scratch without syncing tracked harness folders.
-- `bun run rebuild:release` - clean and rebuild everything, including tracked harness output sync.
-- `bun test tests/build.test.js` - run a focused Bun test.
-- `bun run test` - run the full Bun + Node test suite.
-- `bun run test:live-e2e` - opt-in live-mode E2E against framework fixtures (~2 min; needs `npx playwright install chromium` once).
-- `bun run test:skill-behavior` - opt-in LLM-backed checks that the SKILL.md Setup flow actually drives the agent (~5 min; runs claude-sonnet-4-6 / gpt-5.5 / gemini-3.1-flash-lite, roughly $0.50-1.50 per run on the production-tier models, needs `.env` with provider keys).
-- `bun run build:browser` / `bun run build:extension` - rebuild browser-specific bundles.
+- `npm run dev` - generate local API data and start the Astro dev server.
+- `npm run build` - source-first build: regenerate `dist/`, derived site assets, and validation output without syncing tracked harness folders.
+- `npm run build:release` - release/distribution build: run the full build and sync tracked root harness folders plus `plugin/`.
+- `npm run rebuild` - clean and rebuild everything from scratch without syncing tracked harness folders.
+- `npm run rebuild:release` - clean and rebuild everything, including tracked harness output sync.
+- `node --test tests/context.test.mjs` - run a focused Node test.
+- `npm run test` - run the full test dispatcher through Node's built-in test runner.
+- `npm run test:live-e2e` - opt-in live-mode E2E against framework fixtures (~2 min; needs Chrome or Edge installed locally for `puppeteer-core`).
+- `npm run test:skill-behavior` - opt-in LLM-backed checks that the SKILL.md Setup flow actually drives the agent (~5 min; runs claude-sonnet-4-6 / gpt-5.5 / gemini-3.1-flash-lite, roughly $0.50-1.50 per run on the production-tier models, needs `.env` with provider keys).
+- `npm run build:browser` / `npm run build:extension` - rebuild browser-specific bundles.
 
-Run `bun run build` after changing anything in `skill/`, transformer code, or user-facing counts. It validates the generated distribution under `dist/` without touching tracked root harness outputs. Use `bun run build:release` only when intentionally refreshing generated provider permutations for release/main-sync or build-system work.
+Run `npm run build` after changing anything in `skill/`, transformer code, or user-facing counts. It validates the generated distribution under `dist/` without touching tracked root harness outputs. Use `npm run build:release` only when intentionally refreshing generated provider permutations for release/main-sync or build-system work.
 
 ## Generated Provider Output Policy
 
 The root harness folders (`.agents/skills/`, `.claude/skills/`, `.cursor/skills/`, `.gemini/skills/`, `.github/skills/`, `.kiro/skills/`, `.opencode/skills/`, `.pi/skills/`, `.qoder/skills/`, `.rovodev/skills/`, `.trae*/skills/`) and `plugin/` stay tracked so `main` remains installable for direct GitHub, `npx skills`, and submodule users. They are still generated artifacts.
 
-Normal development should be source-first: stage changes in `skill/`, `scripts/`, `cli/`, `site/`, `extension/`, `functions/`, and `tests/`; leave generated harness churn unstaged unless the user asked for it. After source changes land on `main`, `.github/workflows/sync-generated-output.yml` runs `bun run build:release` and commits generated provider output directly back to `main`. Treat generated harness diffs as release artifacts and keep them out of feature PRs unless they are the point of the PR.
+Normal development should be source-first: stage changes in `skill/`, `scripts/`, `cli/`, `site/`, `extension/`, `functions/`, and `tests/`; leave generated harness churn unstaged unless the user asked for it. After source changes land on `main`, `.github/workflows/sync-generated-output.yml` runs `npm run build:release` and commits generated provider output directly back to `main`. Treat generated harness diffs as release artifacts and keep them out of feature PRs unless they are the point of the PR.
 
 ## Sandbox gotchas for Codex agents
 
 Some repo workflows need to run outside the sandbox in the desktop app:
 
 - GitHub SSH operations that depend on the 1Password SSH agent, such as `gh pr checkout`, may fail in the sandbox with `sign_and_send_pubkey` or no 1Password approval prompt. Rerun them outside the sandbox instead of falling back to unrelated workarounds.
-- `bun run build:release` rewrites committed harness directories such as `.agents/skills/`. In the sandbox, Bun can hit filesystem errors while removing/recreating those trees (for example `EFAULT` on `.agents/skills`). Rerun the release build outside the sandbox before treating it as a real build failure.
-- Puppeteer/headless-Chrome tests, especially `node --test tests/detect-antipatterns-browser.test.mjs` and the browser portion of `bun run test`, can hang in the sandbox while launching Chrome. Run them outside the sandbox for authoritative results.
-- The jsdom fixture suite is intentionally run with Node, not Bun: use `node --test tests/detect-antipatterns-fixtures.test.mjs` or the `bun run test` script. A direct `bun test tests/detect-antipatterns-fixtures.test.mjs` can time out and is not the supported signal.
+- `npm run build:release` rewrites committed harness directories such as `.agents/skills/`. In constrained environments this can hit filesystem errors while removing/recreating those trees (for example `EFAULT` on `.agents/skills`). Rerun the release build outside the constrained environment before treating it as a real build failure.
+- Puppeteer/headless-Chrome tests, especially `node --test tests/detect-antipatterns-browser.test.mjs` and the browser portion of `npm run test`, can hang in constrained environments while launching Chrome. Run them outside the constrained environment for authoritative results.
+- The jsdom fixture suite is intentionally run with Node: use `node --test tests/detect-antipatterns-fixtures.test.mjs` or the `npm run test:detector` script.
 
 ## Coding Style & Naming Conventions
 
@@ -40,17 +40,17 @@ Use ESM, semicolons, and the existing two-space indentation style in JS, HTML, a
 
 ## Testing Guidelines
 
-Tests use Bun’s test runner plus Node’s built-in `--test`. Name tests `*.test.js` or `*.test.mjs` and place new fixtures near the behavior they cover, usually under `tests/fixtures/`. Prefer targeted test runs while iterating, then finish with `bun run test`. If you change generated outputs or provider transforms, verify both source parsing and at least one affected provider path in `dist/`.
+Tests use Node’s built-in `--test`. Name tests `*.test.js` or `*.test.mjs` and place new fixtures near the behavior they cover, usually under `tests/fixtures/`. Prefer targeted Node test runs while iterating, then finish with `npm run test`. If you change generated outputs or provider transforms, verify both source parsing and at least one affected provider path in `dist/`.
 
-For changes to `skill/scripts/live-*.{mjs,js}` or `skill/scripts/live/**`, also run `bun run test:live-e2e` (kept out of the default suite because it does real `npm install` per fixture and boots framework dev servers). Scope to one fixture with `IMPECCABLE_E2E_ONLY=<fixture-name>` while iterating; pass `IMPECCABLE_E2E_DEBUG=1` for page-DOM and dev-server-log dumps on failure. Schema and authoring guide for new fixtures live in `tests/framework-fixtures/README.md`.
+For changes to `skill/scripts/live-*.{mjs,js}` or `skill/scripts/live/**`, also run `npm run test:live-e2e` (kept out of the default suite because it does real `npm install` per fixture and boots framework dev servers). Scope to one fixture with `IMPECCABLE_E2E_ONLY=<fixture-name>` while iterating; pass `IMPECCABLE_E2E_DEBUG=1` for page-DOM and dev-server-log dumps on failure. Schema and authoring guide for new fixtures live in `tests/framework-fixtures/README.md`.
 
-Set `IMPECCABLE_E2E_AGENT=llm` to swap the deterministic fake agent for an API-backed one (`tests/live-e2e/agents/llm-agent.mjs`). Claude Haiku 4.5 is the primary path whenever `ANTHROPIC_API_KEY` is set. DeepSeek V4 Flash is the secondary cheap fallback when only `DEEPSEEK_API_KEY` is set, and can be forced with `IMPECCABLE_E2E_LLM_PROVIDER=deepseek` or `bun run test:live-e2e -- --llm-provider=deepseek`; override either model via `IMPECCABLE_E2E_LLM_MODEL` or `--llm-model=<model>`. Tests skip cleanly when the selected provider key is unset. This path hits the API — use it for verification, not CI.
+Set `IMPECCABLE_E2E_AGENT=llm` to swap the deterministic fake agent for an API-backed one (`tests/live-e2e/agents/llm-agent.mjs`). Claude Haiku 4.5 is the primary path whenever `ANTHROPIC_API_KEY` is set. DeepSeek V4 Flash is the secondary cheap fallback when only `DEEPSEEK_API_KEY` is set, and can be forced with `IMPECCABLE_E2E_LLM_PROVIDER=deepseek` or `npm run test:live-e2e -- --llm-provider=deepseek`; override either model via `IMPECCABLE_E2E_LLM_MODEL` or `--llm-model=<model>`. Tests skip cleanly when the selected provider key is unset. This path hits the API — use it for verification, not CI.
 
-For changes to `skill/SKILL.src.md`'s Setup section, `skill/scripts/context.mjs`, or any Setup-touching reference file (`init.md`, `document.md`, `brand.md`, `product.md`, sub-command refs), also run `bun run test:skill-behavior`. The suite spawns real LLMs (claude-sonnet-4-6, gpt-5.5, gemini-3.1-flash-lite, all three, every run) with the source SKILL.md inlined as system prompt and a workspace-scoped tool set, then asserts on the tool-call trace. Provider keys live in repo-root `.env`; missing keys skip cleanly. Scope to one provider with `IMPECCABLE_SKILL_BEHAVIOR_MODELS=<id>`; add `IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1` to dump per-scenario traces. Baseline (21-22/24) and per-scenario assertions live in `tests/skill-behavior/README.md`.
+For changes to `skill/SKILL.src.md`'s Setup section, `skill/scripts/context.mjs`, or any Setup-touching reference file (`init.md`, `document.md`, `brand.md`, `product.md`, sub-command refs), also run `npm run test:skill-behavior`. The suite spawns real LLMs (claude-sonnet-4-6, gpt-5.5, gemini-3.1-flash-lite, all three, every run) with the source SKILL.md inlined as system prompt and a workspace-scoped tool set, then asserts on the tool-call trace. Provider keys live in repo-root `.env`; missing keys skip cleanly. Scope to one provider with `IMPECCABLE_SKILL_BEHAVIOR_MODELS=<id>`; add `IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1` to dump per-scenario traces. Baseline (21-22/24) and per-scenario assertions live in `tests/skill-behavior/README.md`.
 
 ## Anti-pattern detection rules
 
-`cli/engine/detect-antipatterns.mjs` is the source of truth for the rule engine. It feeds the CLI, the site overlay (`cli/engine/detect-antipatterns-browser.js`, regenerated by `bun run build:browser`), the Chrome extension (`extension/detector/`, regenerated by `bun run build:extension`), and the homepage `DETECTION_COUNT` in `site/public/js/generated/counts.js` (regenerated by `bun run build`). After any rule change run all three builds plus `bun run test` so nothing drifts.
+`cli/engine/detect-antipatterns.mjs` is the source of truth for the rule engine. It feeds the CLI, the site overlay (`cli/engine/detect-antipatterns-browser.js`, regenerated by `npm run build:browser`), the Chrome extension (`extension/detector/`, regenerated by `npm run build:extension`), and the homepage `DETECTION_COUNT` in `site/public/js/generated/counts.js` (regenerated by `npm run build`). After any rule change run all three builds plus `npm run test` so nothing drifts.
 
 TDD order is non-negotiable:
 
@@ -69,7 +69,7 @@ Recent history favors short, imperative subjects such as `Fix: ...`, `Add ...`, 
 
 ## Releases
 
-Tags are per-component because the three components ship independently: `skill-v` (`.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`), `cli-v` (`package.json`), `ext-v` (`extension/manifest.json`). Flow: bump the relevant manifest, add a changelog entry to `site/pages/changelog.astro` (skill = bare `vX.Y.Z`; CLI = `CLI vX.Y.Z`; extension = `Extension vX.Y.Z` — the prefix is how `scripts/release.mjs` finds the right block, and also how the page groups entries by component). Add the entry at the top of that component's group, move the `cf-entry--current` badge onto the new skill entry, and keep it concise: a short lead plus a few tight items, user-facing changes only (no internal tooling, deps, or generated-output syncs), commit, push, then `bun run release:<skill|cli|ext>` (or `--dry-run` first). The script refuses on a dirty tree, an unpushed HEAD, a missing changelog entry, or stale build outputs; skill and extension reruns of `bun run build:release` / `bun run build:extension` must produce zero diff. Skill releases attach `dist/universal.zip`; extension releases attach `dist/extension.zip`. CLI ships to npm via a separate `npm publish`, and the extension zip uploads to the Chrome Web Store manually — both reminded at the end of the script. Fix already-shipped notes with `gh release edit <tag> --notes-file <md>`.
+Tags are per-component because the three components ship independently: `skill-v` (`.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`), `cli-v` (`package.json`), `ext-v` (`extension/manifest.json`). Flow: bump the relevant manifest, add a changelog entry to `site/pages/changelog.astro` (skill = bare `vX.Y.Z`; CLI = `CLI vX.Y.Z`; extension = `Extension vX.Y.Z` — the prefix is how `scripts/release.mjs` finds the right block, and also how the page groups entries by component). Add the entry at the top of that component's group, move the `cf-entry--current` badge onto the new skill entry, and keep it concise: a short lead plus a few tight items, user-facing changes only (no internal tooling, deps, or generated-output syncs), commit, push, then `npm run release:<skill|cli|ext>` (or `--dry-run` first). The script refuses on a dirty tree, an unpushed HEAD, a missing changelog entry, or stale build outputs; skill and extension reruns of `npm run build:release` / `npm run build:extension` must produce zero diff. Skill releases attach `dist/universal.zip`; extension releases attach `dist/extension.zip`. CLI ships to npm via a separate `npm publish`, and the extension zip uploads to the Chrome Web Store manually — both reminded at the end of the script. Fix already-shipped notes with `gh release edit <tag> --notes-file <md>`.
 
 ## Contributor Notes
 

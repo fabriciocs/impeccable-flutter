@@ -85,9 +85,10 @@ Search the codebase in priority order:
 2. **Tailwind config**: if `tailwind.config.{js,ts,mjs}` exists, read the `theme.extend` block for colors, fontFamily, spacing, borderRadius, boxShadow.
 3. **CSS-in-JS theme files**: styled-components, emotion, vanilla-extract, stitches; look for `theme.ts`, `tokens.ts`, or equivalent.
 4. **Design token files**: `tokens.json`, `design-tokens.json`, Style Dictionary output, W3C token community group format.
-5. **Component library**: scan the main button, card, input, navigation, dialog components. Note their variant APIs and default styles.
-6. **Global stylesheet**: the root CSS file usually has the base typography and color assignments.
-7. **Visible rendered output**: if browser automation tools are available, load the live site and sample computed styles from key elements (body, h1, a, button, .card). This catches values that tokens miss.
+5. **Flutter theme and widgets**: if `pubspec.yaml`, `lib/main.dart`, or `*.dart` files are present, read the app `ThemeData`, `ColorScheme`, `TextTheme`, component themes, `ThemeExtension`, shared widgets, and Material 3 usage. Record widget names and theme roles, not CSS class names.
+6. **Component library**: scan the main button, card, input, navigation, dialog components. Note their variant APIs and default styles.
+7. **Global stylesheet**: the root CSS file usually has the base typography and color assignments.
+8. **Visible rendered output**: if browser automation tools are available, load the live site and sample computed styles from key elements (body, h1, a, button, .card). For Flutter Web, treat this as rendered-output evidence only; it may not reveal Dart source semantics or theme roles.
 
 ### Step 2: Auto-extract what can be auto-extracted
 
@@ -98,6 +99,8 @@ Build a structured draft from the discovered tokens. For each token class:
 - **Elevation**: Catalogue the shadow vocabulary. If the project is flat and uses tonal layering instead, that's a valid answer; state it explicitly.
 - **Components**: For each common component (button, card, input, chip, list item, tooltip, nav), extract shape (radius), color assignment, hover/focus treatment, internal padding.
 - **Spacing + layout**: Fold into Overview or relevant Components. The spec does NOT have a Layout section.
+
+For Flutter, map the discovered system to the same DESIGN.md concepts while preserving Flutter names in prose: `ColorScheme.primary` can become a Primary color token, `TextTheme.titleMedium` can become a Title typography role, and shared widgets can be documented as components. Do not claim the design system exposes CSS utilities when it actually exposes Dart theme roles.
 
 ### Step 2b: Stage the frontmatter
 
@@ -294,6 +297,8 @@ Regenerate the sidecar whenever you regenerate root `DESIGN.md`. If the user onl
 #### Component translation rules
 
 The `html` and `css` fields must be **self-contained, drop-in snippets** that render correctly when injected into a shadow DOM. The panel applies them directly: no post-processing, no framework runtime.
+
+For Flutter projects, the sidecar still stores HTML/CSS previews for the web panel. Translate the visual character of important widgets into self-contained previews, but keep the Markdown prose clear that the production implementation lives in Dart widgets and Flutter theme roles.
 
 1. **Tailwind expansion.** If the source uses Tailwind (className="bg-primary text-white rounded-lg px-6 py-3"), expand every utility to literal CSS properties in the `css` string. Do **not** reference Tailwind classes; do **not** assume a Tailwind CSS bundle is loaded. Each component is self-contained.
 2. **Token resolution.** If the project exposes tokens as CSS custom properties on `:root` (e.g. `--color-primary`, `--radius-md`), reference them via `var(--color-primary)`; they inherit through the shadow DOM and stay live-bound. If tokens live only in JS theme objects (styled-components, CSS-in-JS), resolve to literal values at generation time.

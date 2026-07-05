@@ -122,6 +122,26 @@ Create context-appropriate strategy:
 - No hover states (not reliable)
 - Deep links to web app for complex interactions
 
+### Flutter Adaptation
+
+For Flutter screens, adaptation is expressed through constraints and widget composition, not CSS breakpoints.
+
+**Layout Strategy**:
+- Use `LayoutBuilder` for local constraints and `MediaQuery` for device context.
+- Prefer adaptive navigation patterns: bottom navigation on phone, navigation rail or side rail on tablet/desktop, and split views where the task benefits from simultaneous context.
+- Use `Flexible`, `Expanded`, `Wrap`, `SingleChildScrollView`, slivers, and max-width constraints deliberately to prevent `Row` / `Column` overflow.
+- Keep touch targets at least 48 logical pixels for Material controls unless the project has a stricter convention.
+
+**Interaction Strategy**:
+- Avoid hover-only functionality. Flutter may run on touch, pointer, keyboard, desktop, and web from the same codebase.
+- Preserve text scaling and platform accessibility settings. Do not lock text or containers to perfect English copy.
+- Add `Semantics`, focus traversal, keyboard activation, and `Tooltip` to custom controls.
+
+**Implementation Strategy**:
+- Prefer project theme roles and component themes over local size/color/style branches.
+- Use platform adaptations only when the user expectation genuinely changes. Do not fork separate phone/tablet/desktop UIs for cosmetic differences alone.
+- Validate with `flutter analyze`, `flutter test`, and existing widget/golden tests when the Flutter SDK is available.
+
 ## Implement Adaptations
 
 Apply changes systematically:

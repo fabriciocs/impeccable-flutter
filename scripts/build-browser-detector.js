@@ -31,7 +31,7 @@ function browserSafeModule(relPath) {
     if (!match) throw new Error('Could not extract browser antipattern registry');
     code = match[0];
   }
-  code = code.replace(/^import[\s\S]*?;\n/gm, '');
+  code = code.replace(/^import[\s\S]*?;\r?\n/gm, '');
   code = code.replace(/^export\s+\{[\s\S]*?^};\n?/gm, '');
   return `// --- ${relPath} ---\n${code.trim()}\n`;
 }

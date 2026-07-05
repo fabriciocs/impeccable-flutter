@@ -37,6 +37,7 @@ const WORKSPACE_DISCOVERY_IGNORED_DIRS = new Set([
   '.svelte-kit',
   '.turbo',
   '.cache',
+  '.dart_tool',
   'coverage',
 ]);
 
@@ -405,7 +406,9 @@ function walkDirs(root, visit) {
 function isCandidateProjectRoot(dir) {
   return !!(
     fs.existsSync(path.join(dir, 'package.json'))
+    || fs.existsSync(path.join(dir, 'pubspec.yaml'))
     || firstExisting(dir, [...PRODUCT_NAMES, ...DESIGN_NAMES])
+    || fs.existsSync(path.join(dir, 'lib', 'main.dart'))
     || fs.existsSync(path.join(dir, 'src'))
     || fs.existsSync(path.join(dir, 'app'))
     || fs.existsSync(path.join(dir, 'pages'))
@@ -419,6 +422,11 @@ function isIgnoredWorkspaceDiscoveryDir(name) {
 
 function findTargetExample(repoRoot, projectRoot) {
   const examples = [
+    'lib/main.dart',
+    'lib/app.dart',
+    'lib/src/app.dart',
+    'pubspec.yaml',
+    'web/index.html',
     'src/App.jsx',
     'src/App.tsx',
     'src/main.jsx',
@@ -475,6 +483,8 @@ function nearestProjectLikeRoot(repoRoot, targetDir) {
     if (
       firstExisting(dir, [...PRODUCT_NAMES, ...DESIGN_NAMES])
       || fs.existsSync(path.join(dir, 'package.json'))
+      || fs.existsSync(path.join(dir, 'pubspec.yaml'))
+      || fs.existsSync(path.join(dir, 'lib', 'main.dart'))
     ) {
       return dir;
     }
@@ -904,13 +914,17 @@ function pathExistsForTarget(cwd, targetPath) {
 function buildResolvedContextDirective(ctx, options, { targetExists = null } = {}) {
   const targetPath = hasTargetOption(options) ? options.targetPath : null;
   return `RESOLVED_CONTEXT:\n${JSON.stringify({
-    targetPath,
+    targetPath: normalizeJsonPath(targetPath),
     ...(targetPath ? { targetExists } : {}),
     projectRoot: ctx.projectRoot,
     repoRoot: ctx.repoRoot,
-    productPath: ctx.productPath,
-    designPath: ctx.designPath,
+    productPath: normalizeJsonPath(ctx.productPath),
+    designPath: normalizeJsonPath(ctx.designPath),
   }, null, 2)}`;
+}
+
+function normalizeJsonPath(value) {
+  return typeof value === 'string' ? value.split(path.sep).join('/') : value;
 }
 
 function shouldWarnMissingTarget(ctx, targetProvided, targetExists = null) {

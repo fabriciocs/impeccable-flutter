@@ -276,6 +276,22 @@ describe('loadContext (monorepo project context)', () => {
     assert.equal(ctx.productPath, 'PRODUCT.md');
   });
 
+  it('keeps unmatched Flutter projects from being hijacked by an ancestor workspace', () => {
+    write('package.json', JSON.stringify({
+      private: true,
+      workspaces: ['apps/*'],
+    }, null, 2));
+    write('PRODUCT.md', '# Ancestor product\n');
+    write('side-flutter/PRODUCT.md', '# Side Flutter product\n');
+    write('side-flutter/pubspec.yaml', 'name: side_flutter\n');
+    write('side-flutter/lib/main.dart', 'void main() {}\n');
+
+    const ctx = loadContext(path.join(scratch, 'side-flutter'), { targetPath: 'lib/main.dart' });
+    assert.equal(ctx.projectRoot, path.join(scratch, 'side-flutter'));
+    assert.match(ctx.product, /Side Flutter product/);
+    assert.equal(ctx.productPath, 'PRODUCT.md');
+  });
+
   it('does not reuse stale project resolution after workspace markers change', () => {
     write('PRODUCT.md', '# Root product\n');
     write('apps/dashboard/PRODUCT.md', '# Dashboard product\n');
@@ -483,6 +499,27 @@ describe('loadContext (monorepo project context)', () => {
     assert.doesNotMatch(res.stdout, /# PRODUCT\.md/);
     assert.doesNotMatch(res.stdout, /# DESIGN\.md/);
     assert.doesNotMatch(res.stdout, /MONOREPO_TARGET_REQUIRED/);
+  });
+
+  it('uses Flutter source files as target examples for app selection candidates', () => {
+    write('package.json', JSON.stringify({
+      private: true,
+      workspaces: ['apps/*'],
+    }, null, 2));
+    write('PRODUCT.md', '# Root product\n');
+    write('DESIGN.md', '# Root design\n');
+    write('apps/flutter_app/pubspec.yaml', 'name: flutter_app\n');
+    write('apps/flutter_app/lib/main.dart', 'void main() {}\n');
+
+    const res = spawnSync(process.execPath, [SCRIPT_PATH], {
+      cwd: scratch,
+      encoding: 'utf8',
+      env: { ...process.env, IMPECCABLE_NO_UPDATE_CHECK: '1' },
+    });
+    assert.equal(res.status, 0);
+    assert.match(res.stdout, /TARGET_SELECTION_REQUIRED:/);
+    assert.match(res.stdout, /"path": "apps\/flutter_app"/);
+    assert.match(res.stdout, /"targetExample": "apps\/flutter_app\/lib\/main\.dart"/);
   });
 
   it('describes child, inherited, and mixed context sources in app selection candidates', () => {

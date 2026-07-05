@@ -7,7 +7,7 @@
  * guard treats root `.claude-plugin/plugin.json` as the source of truth and
  * flags any other version-bearing file that disagrees.
  */
-import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach } from './bun-test-shim.mjs';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';

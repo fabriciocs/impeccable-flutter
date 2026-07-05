@@ -513,7 +513,7 @@ describe('hook-admin.mjs', () => {
     assert.equal(local.ignoreValues[0].reason, 'Still intentional');
 
     const status = runAdmin(['status']);
-    assert.match(status, /local file:\s+\.impeccable\/config\.local\.json/);
+    assert.match(status, /local file:\s+\.impeccable[\\/]config\.local\.json/);
     assert.match(status, /ignoreValues:\s+overused-font=inter/);
   });
 
@@ -1385,40 +1385,43 @@ describe('renderCleanAck() / renderPendingAck()', () => {
 
 describe('parseApplyPatchPaths()', () => {
   it('extracts absolute and relative paths from patch bodies', () => {
-    const cwd = '/proj';
+    const cwd = path.resolve('/proj');
     const rel = parseApplyPatchPaths('*** Update File: src/App.jsx\n', cwd);
-    assert.deepEqual(rel, ['/proj/src/App.jsx']);
+    assert.deepEqual(rel, [path.join(cwd, 'src', 'App.jsx')]);
     const abs = parseApplyPatchPaths('*** Add File: /tmp/x.css\n*** Update File: src/y.html\n', cwd);
-    assert.deepEqual(abs, ['/tmp/x.css', '/proj/src/y.html']);
+    assert.deepEqual(abs, [path.resolve('/tmp/x.css'), path.join(cwd, 'src', 'y.html')]);
   });
 });
 
 describe('resolveTargetFiles()', () => {
   it('uses file_path when present and falls back to apply_patch command', () => {
-    assert.deepEqual(resolveTargetFiles({ tool_input: { file_path: '/a/b.tsx' } }, '/proj'), ['/a/b.tsx']);
+    const cwd = path.resolve('/proj');
+    assert.deepEqual(resolveTargetFiles({ tool_input: { file_path: '/a/b.tsx' } }, cwd), ['/a/b.tsx']);
     assert.deepEqual(
-      resolveTargetFiles({ tool_name: 'apply_patch', tool_input: { command: '*** Update File: src/x.css\n' } }, '/proj'),
-      ['/proj/src/x.css'],
+      resolveTargetFiles({ tool_name: 'apply_patch', tool_input: { command: '*** Update File: src/x.css\n' } }, cwd),
+      [path.join(cwd, 'src', 'x.css')],
     );
-    assert.deepEqual(resolveTargetFiles({ tool_name: 'Bash', tool_input: { command: 'echo hi' } }, '/proj'), []);
+    assert.deepEqual(resolveTargetFiles({ tool_name: 'Bash', tool_input: { command: 'echo hi' } }, cwd), []);
   });
 
   it('includes every apply_patch file even when file_path is also present', () => {
+    const cwd = path.resolve('/proj');
     assert.deepEqual(
       resolveTargetFiles({
         tool_name: 'apply_patch',
         tool_input: {
-          file_path: '/proj/src/App.jsx',
+          file_path: path.join(cwd, 'src', 'App.jsx'),
           command: '*** Update File: src/App.jsx\n*** Update File: src/styles.css\n',
         },
-      }, '/proj'),
-      ['/proj/src/App.jsx', '/proj/src/styles.css'],
+      }, cwd),
+      [path.join(cwd, 'src', 'App.jsx'), path.join(cwd, 'src', 'styles.css')],
     );
   });
 
   it('accepts Cursor Write/StrReplace path field and top-level file_path', () => {
-    assert.deepEqual(resolveTargetFiles({ tool_input: { path: '/a/b.tsx' } }, '/proj'), ['/a/b.tsx']);
-    assert.deepEqual(resolveTargetFiles({ file_path: '/a/c.css' }, '/proj'), ['/a/c.css']);
+    const cwd = path.resolve('/proj');
+    assert.deepEqual(resolveTargetFiles({ tool_input: { path: '/a/b.tsx' } }, cwd), ['/a/b.tsx']);
+    assert.deepEqual(resolveTargetFiles({ file_path: '/a/c.css' }, cwd), ['/a/c.css']);
   });
 });
 
@@ -1477,7 +1480,7 @@ describe('resolveHarness() / normalizeHookEvent()', () => {
     assert.equal(normalized.tool_name, 'apply_patch');
     assert.equal(normalized.tool_input.command, patch);
     // resolveTargetFiles understands apply_patch via tool_input.command.
-    assert.deepEqual(resolveTargetFiles(normalized, '/proj'), ['/proj/src/Card.css']);
+    assert.deepEqual(resolveTargetFiles(normalized, '/proj'), [path.resolve('/proj/src/Card.css')]);
   });
 
   it('does not misroute an edit whose content contains apply_patch markers', () => {

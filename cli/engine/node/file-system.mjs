@@ -14,9 +14,11 @@ const SCANNABLE_EXTENSIONS = new Set([
   '.html', '.htm', '.css', '.scss', '.sass', '.less',
   '.jsx', '.tsx', '.js', '.ts',
   '.vue', '.svelte', '.astro',
+  '.dart',
 ]);
 
 const HTML_EXTENSIONS = new Set(['.html', '.htm']);
+const DART_EXTENSIONS = new Set(['.dart']);
 
 function walkDir(dir) {
   const files = [];
@@ -116,7 +118,63 @@ const FRAMEWORK_CONFIGS = [
     fingerprint: { header: 'x-powered-by', value: /remix/i } },
 ];
 
+const FLUTTER_WEB_SIGNAL_RE = /(?:_flutter\.loader|flutter\.js|main\.dart\.js)/i;
+
+function fileExists(filePath) {
+  try { return fs.statSync(filePath).isFile(); } catch { return false; }
+}
+
+function detectFlutterProject(dir) {
+  const pubspecPath = path.join(dir, 'pubspec.yaml');
+  const mainDartPath = path.join(dir, 'lib', 'main.dart');
+  const webIndexPath = path.join(dir, 'web', 'index.html');
+  const flutterJsPath = path.join(dir, 'web', 'flutter.js');
+  const mainDartJsPath = path.join(dir, 'web', 'main.dart.js');
+
+  const hasPubspec = fileExists(pubspecPath);
+  const hasMainDart = fileExists(mainDartPath);
+  const hasWebIndex = fileExists(webIndexPath);
+  const webSignals = [];
+
+  if (fileExists(flutterJsPath)) webSignals.push('web/flutter.js');
+  if (fileExists(mainDartJsPath)) webSignals.push('web/main.dart.js');
+  if (hasWebIndex) {
+    try {
+      const html = fs.readFileSync(webIndexPath, 'utf-8');
+      if (FLUTTER_WEB_SIGNAL_RE.test(html)) webSignals.push('web/index.html');
+    } catch { /* ignore unreadable optional web index */ }
+  }
+
+  if (!hasPubspec && !hasMainDart && !hasWebIndex && webSignals.length === 0) return null;
+
+  const configPath = hasPubspec
+    ? pubspecPath
+    : hasMainDart
+      ? mainDartPath
+      : webIndexPath;
+  const isFlutterWeb = hasWebIndex || webSignals.length > 0;
+
+  return {
+    name: 'Flutter',
+    port: null,
+    configPath,
+    fingerprint: { body: FLUTTER_WEB_SIGNAL_RE },
+    optionalServer: true,
+    sourceOnly: !isFlutterWeb,
+    flutter: {
+      hasPubspec,
+      hasMainDart,
+      hasWebIndex,
+      webSignals,
+      projectType: isFlutterWeb ? 'flutter-web' : 'flutter-source',
+    },
+  };
+}
+
 function detectFrameworkConfig(dir) {
+  const flutter = detectFlutterProject(dir);
+  if (flutter) return flutter;
+
   let entries;
   try { entries = fs.readdirSync(dir); } catch { return null; }
   const entrySet = new Set(entries);
@@ -189,10 +247,12 @@ export {
   SKIP_DIRS,
   SCANNABLE_EXTENSIONS,
   HTML_EXTENSIONS,
+  DART_EXTENSIONS,
   walkDir,
   resolveImport,
   buildImportGraph,
   FRAMEWORK_CONFIGS,
+  detectFlutterProject,
   detectFrameworkConfig,
   isPortListening,
 };

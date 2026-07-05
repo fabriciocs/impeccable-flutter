@@ -1,5 +1,5 @@
 /**
- * Playwright helpers that drive the live-mode bar UI exactly the way a user
+ * Browser helpers that drive the live-mode bar UI exactly the way a user
  * would: pick an element, configure, Go, cycle, accept.
  *
  * Selector strategy: live-browser.js uses deterministic ids (`impeccable-live-*`)
@@ -644,7 +644,7 @@ async function clickBarButton(page, label) {
     }
   }
   // Real-LLM fixtures can leave Vite/Tailwind HMR settling for longer than a
-  // human-visible click target stays Playwright-stable. Dispatch the click on
+  // human-visible click target stays browser-automation stable. Dispatch the click on
   // the current button if normal user-like clicks lost the remount race.
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -906,7 +906,7 @@ export async function waitForBarHidden(page, { timeout = 10_000 } = {}) {
 
 /**
  * Dismiss dev-tool overlays that intercept clicks on the live bar (Astro, etc.).
- * @param {import('playwright').Page} page
+ * @param {import('puppeteer-core').Page} page
  */
 export async function preparePageForBarInteraction(page) {
   await page.evaluate(() => {
@@ -964,7 +964,7 @@ export async function submitSteer(page, message) {
 }
 
 /**
- * Poll until a marked hero is visible. Uses Playwright's visible check so
+ * Poll until a marked hero is visible. Uses the locator visible check so
  * elements inside closed modals/tabs do not satisfy the assertion.
  */
 export async function waitForSteerDomMarker(page, selector, { timeout = 20_000 } = {}) {

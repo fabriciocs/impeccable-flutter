@@ -6,6 +6,8 @@ Identify reusable patterns, components, and design tokens, then extract and cons
 
 Find the design system, component library, or shared UI directory. Understand its structure: component organization, naming conventions, design token structure, import/export conventions.
 
+For Flutter targets, look for `ThemeData`, `ColorScheme`, `TextTheme`, component themes, `ThemeExtension`, shared widgets, `lib/src/theme`, `lib/theme`, `lib/widgets`, and generated localization files. Treat Material 3 theme roles as the design system when the project uses Material.
+
 **CRITICAL**: If no design system exists, {{ask_instruction}} before creating one. Understand the preferred location and structure first.
 
 ## Step 2: Identify Patterns
@@ -18,6 +20,7 @@ Look for extraction opportunities in the target area:
 - **Composition patterns**: Layout or interaction patterns that repeat (form rows, toolbar groups, empty states)
 - **Type styles**: Repeated font-size + weight + line-height combinations
 - **Animation patterns**: Repeated easing, duration, or keyframe combinations
+- **Flutter theme drift**: Repeated `TextStyle`, `Color`, `BorderRadius`, `EdgeInsets`, decoration, or button style values that should be theme roles, component themes, or shared widgets
 
 Assess value: only extract things used 3+ times with the same intent. Premature abstraction is worse than duplication.
 
@@ -41,6 +44,8 @@ Build improved, reusable versions:
 - **Design tokens**: Clear naming (primitive vs semantic), proper hierarchy and organization, documentation of when to use each token
 - **Patterns**: When to use this pattern, code examples, variations and combinations
 
+For Flutter, extract into the project's existing shape: theme roles, component themes, `ThemeExtension`, and small named widgets with clear constructor parameters. Prefer reusing Material widgets and project components before creating new wrappers. Do not turn a one-off `Container` into a generic component just because it repeats a shape.
+
 ## Step 5: Migrate
 
 Replace existing uses with the new shared versions:
@@ -49,6 +54,8 @@ Replace existing uses with the new shared versions:
 - **Replace systematically**: Update each use to consume the shared version
 - **Test thoroughly**: Ensure visual and functional parity
 - **Delete dead code**: Remove the old implementations
+
+For Flutter migrations, keep semantics and focus behavior intact, then run `flutter analyze` and `flutter test` when available.
 
 ## Step 6: Document
 

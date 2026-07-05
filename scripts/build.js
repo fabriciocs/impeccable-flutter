@@ -136,7 +136,7 @@ function validatePluginVersions(rootDir) {
   if (total > 0) {
     console.error(
       `\n❌ ${total} plugin/skill version problem(s). Bump every version together and run ` +
-      `\`bun run build:release\` to regenerate the ./plugin subtree (issue #274).`,
+      `\`npm run build:release\` to regenerate the ./plugin subtree (issue #274).`,
     );
   } else {
     console.log(`✓ Plugin/skill versions agree: ${source}`);
@@ -623,7 +623,7 @@ async function build() {
   console.log('🔨 Building cross-provider design skills...\n');
 
   // Sub-page generation, HTML bundling, and static-asset copying are now
-  // handled by Astro (bun run build:site). This script focuses on skills,
+  // handled by Astro (npm run build:site). This script focuses on skills,
   // API data, and Cloudflare config.
 
   // Copy browser detector to site/public/js/ so the antipattern examples can

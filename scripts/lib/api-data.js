@@ -7,7 +7,7 @@ import fs from 'fs';
  * as static assets via _redirects rewrites (no function invocations needed).
  *
  * Shared by the production build (scripts/build.js, writing into site/public/)
- * and the dev prebuild (scripts/gen-dev-api.mjs) so `bun run dev` serves the
+ * and the dev prebuild (scripts/gen-dev-api.mjs) so `npm run dev` serves the
  * same payloads `app.js` fetches in production. `outDir` is the directory that
  * gets a `_data/api/` tree; `rootDir` is the repo root.
  */

@@ -6,14 +6,15 @@
  * Deterministic install/update coverage uses a local universal bundle override
  * and runs in the default suite. Remote smoke blocks that download the
  * production universal bundle use `describeRemote` and run only under
- * `bun run test:cli-remote-e2e` (IMPECCABLE_CLI_REMOTE_E2E=1), skipping
+ * `npm run test:cli-remote-e2e` (IMPECCABLE_CLI_REMOTE_E2E=1), skipping
  * gracefully when impeccable.style is unreachable.
  */
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
+import { describe, test, expect, beforeAll, afterAll } from './bun-test-shim.mjs';
 import { execSync } from 'child_process';
 import { mkdtempSync, existsSync, readdirSync, readFileSync, mkdirSync, writeFileSync, rmSync, lstatSync, realpathSync, readlinkSync, symlinkSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { tmpdir } from 'os';
+import { fileURLToPath } from 'url';
 import {
   copyProviderHooks,
   copyProviderSkills,
@@ -25,14 +26,38 @@ import {
   resolveInstallTargets,
 } from '../cli/bin/commands/skills.mjs';
 
-const CLI = join(import.meta.dir, '..', 'cli', 'bin', 'cli.js');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI = join(__dirname, '..', 'cli', 'bin', 'cli.js');
 
 function run(args, opts = {}) {
+  const env = opts.env ? { ...opts.env } : undefined;
+  if (env?.HOME && process.platform === 'win32') {
+    env.USERPROFILE = env.HOME;
+    const root = /^[A-Za-z]:\\/.exec(env.HOME)?.[0]?.slice(0, 2);
+    if (root) {
+      env.HOMEDRIVE = root;
+      env.HOMEPATH = env.HOME.slice(root.length);
+    }
+  }
+
   return execSync(`node ${CLI} ${args}`, {
     encoding: 'utf8',
     timeout: 60000,
     ...opts,
+    ...(env ? { env } : {}),
   });
+}
+
+function pathText(value) {
+  return String(value).replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase();
+}
+
+function expectTextToContainPath(text, expectedPath) {
+  const candidates = [expectedPath];
+  try {
+    candidates.push(realpathSync.native(expectedPath));
+  } catch {}
+  expect(candidates.some(candidate => pathText(text).includes(pathText(candidate)))).toBe(true);
 }
 
 /** Create a fake skill installation in a temp dir */
@@ -120,7 +145,7 @@ function createPrefixedInstall(root, { prefix = 'i-', providers = ['.claude'], f
 // ─── Already-installed detection ─────────────────────────────────────────────
 
 // Remote e2e blocks (real bundle downloads from impeccable.style) run only
-// under `bun run test:cli-remote-e2e` (IMPECCABLE_CLI_REMOTE_E2E=1). The default
+// under `npm run test:cli-remote-e2e` (IMPECCABLE_CLI_REMOTE_E2E=1). The default
 // suite skips them so it stays offline and stable; when opted in they still
 // skip gracefully if the bundle endpoint is unreachable.
 const WANT_CLI_REMOTE_E2E = process.env.IMPECCABLE_CLI_REMOTE_E2E === '1';
@@ -825,9 +850,18 @@ describe('skills install/update: local universal bundle e2e', () => {
       expect(existsSync(join(home, provider, 'skills', 'impeccable', 'SKILL.md'))).toBe(true);
       expect(existsSync(join(tmp, provider, 'skills', 'impeccable', 'SKILL.md'))).toBe(false);
     }
-    expect(readFileSync(join(tmp, '.claude', 'settings.local.json'), 'utf8')).toContain(join(home, '.claude', 'skills', 'impeccable', 'scripts', 'hook.mjs'));
-    expect(readFileSync(join(tmp, '.codex', 'hooks.json'), 'utf8')).toContain(join(home, '.agents', 'skills', 'impeccable', 'scripts', 'hook.mjs'));
-    expect(readFileSync(join(tmp, '.cursor', 'hooks.json'), 'utf8')).toContain(join(home, '.cursor', 'skills', 'impeccable', 'scripts', 'hook-before-edit.mjs'));
+    expectTextToContainPath(
+      readFileSync(join(tmp, '.claude', 'settings.local.json'), 'utf8'),
+      join(home, '.claude', 'skills', 'impeccable', 'scripts', 'hook.mjs'),
+    );
+    expectTextToContainPath(
+      readFileSync(join(tmp, '.codex', 'hooks.json'), 'utf8'),
+      join(home, '.agents', 'skills', 'impeccable', 'scripts', 'hook.mjs'),
+    );
+    expectTextToContainPath(
+      readFileSync(join(tmp, '.cursor', 'hooks.json'), 'utf8'),
+      join(home, '.cursor', 'skills', 'impeccable', 'scripts', 'hook-before-edit.mjs'),
+    );
 
     rmSync(tmp, { recursive: true, force: true });
     rmSync(home, { recursive: true, force: true });

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from '../bun-test-shim.mjs';
 import { PROVIDERS } from '../../scripts/lib/transformers/providers.js';
 import { compileProviderBlocks, PROVIDER_BLOCK_TAGS } from '../../scripts/lib/utils.js';
 

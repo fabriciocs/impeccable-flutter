@@ -63,7 +63,7 @@ export const SKILL_BODY = loadSkillBody();
  *
  * - `.claude/skills/impeccable` is symlinked at the SOURCE skill dir (not
  *   the built `.claude/skills/impeccable/`) so the test exercises whatever
- *   is in `skill/` right now, without needing `bun run build` to refresh
+ *   is in `skill/` right now, without needing `npm run build` to refresh
  *   the harness output dirs. The trade-off: reference files surface their
  *   raw `{{placeholders}}`, but the assertions only check tool calls, not
  *   their content.

@@ -100,7 +100,7 @@ Implement the feature following the design brief. Build in passes so structure, 
 
 ## Step 5: Iterate Visually
 
-Look at what you built like a designer would. Your eyes are whatever the harness gives you: a connected browser, a screenshotting tool, Playwright, or asking the user. Use them for responsive testing (mobile, tablet, desktop minimum) and general visual validation.
+Look at what you built like a designer would. Your eyes are whatever the harness gives you: a connected browser, a screenshotting tool, Puppeteer with a local browser, or asking the user. Use them for responsive testing (mobile, tablet, desktop minimum) and general visual validation.
 
 If your tool returns a file path, read the PNG back into the conversation. A screenshot you didn't read doesn't count.
 

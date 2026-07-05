@@ -5,6 +5,7 @@ import { loadDesignSystemForCwd } from '../design-system.mjs';
 import { createBrowserDetector, detectUrl } from '../engines/browser/detect-url.mjs';
 import { detectHtml } from '../engines/static-html/detect-html.mjs';
 import { detectText } from '../engines/regex/detect-text.mjs';
+import { detectDart } from '../engines/flutter-dart/detect-dart.mjs';
 import {
   filterDetectionFindings,
   readDetectionConfig,
@@ -12,6 +13,7 @@ import {
 } from '../../lib/impeccable-config.mjs';
 import {
   HTML_EXTENSIONS,
+  DART_EXTENSIONS,
   buildImportGraph,
   detectFrameworkConfig,
   isPortListening,
@@ -59,8 +61,10 @@ async function handleStdin(options = {}) {
     const parsed = JSON.parse(input);
     const fp = parsed?.tool_input?.file_path;
     if (fp && fs.existsSync(fp)) {
-      return HTML_EXTENSIONS.has(path.extname(fp).toLowerCase())
-        ? detectHtml(fp, options) : detectText(fs.readFileSync(fp, 'utf-8'), fp, options);
+      const ext = path.extname(fp).toLowerCase();
+      if (HTML_EXTENSIONS.has(ext)) return detectHtml(fp, options);
+      if (DART_EXTENSIONS.has(ext)) return detectDart(fs.readFileSync(fp, 'utf-8'), fp, options);
+      return detectText(fs.readFileSync(fp, 'utf-8'), fp, options);
     }
   } catch { /* not JSON */ }
   return detectText(input, '<stdin>', options);
@@ -194,24 +198,31 @@ async function detectCli() {
           if (!jsonMode && !quietMode) {
             const fwConfig = detectFrameworkConfig(resolved);
             if (fwConfig) {
-              const probe = await isPortListening(fwConfig.port, fwConfig.fingerprint);
-              if (probe.listening && probe.matched) {
-                process.stderr.write(
-                  `\n${fwConfig.name} dev server detected on localhost:${fwConfig.port}.\n` +
-                  `For more accurate results, scan the running site:\n` +
-                  `  npx impeccable detect http://localhost:${fwConfig.port}\n\n`
-                );
-              } else if (probe.listening && !probe.matched) {
+              if (fwConfig.optionalServer && fwConfig.port == null) {
                 process.stderr.write(
                   `\n${fwConfig.name} project detected (${path.basename(fwConfig.configPath)}).\n` +
-                  `Port ${fwConfig.port} is in use by another service. Start the ${fwConfig.name} dev server and scan via URL for best results.\n\n`
+                  `Dart source code analysis can run directly. If this is Flutter Web, scan a running URL separately to inspect the rendered browser output.\n\n`
                 );
               } else {
-                process.stderr.write(
-                  `\n${fwConfig.name} project detected (${path.basename(fwConfig.configPath)}).\n` +
-                  `Start the dev server and scan via URL for best results:\n` +
-                  `  npx impeccable detect http://localhost:${fwConfig.port}\n\n`
-                );
+                const probe = await isPortListening(fwConfig.port, fwConfig.fingerprint);
+                if (probe.listening && probe.matched) {
+                  process.stderr.write(
+                    `\n${fwConfig.name} dev server detected on localhost:${fwConfig.port}.\n` +
+                    `For more accurate results, scan the running site:\n` +
+                    `  npx impeccable detect http://localhost:${fwConfig.port}\n\n`
+                  );
+                } else if (probe.listening && !probe.matched) {
+                  process.stderr.write(
+                    `\n${fwConfig.name} project detected (${path.basename(fwConfig.configPath)}).\n` +
+                    `Port ${fwConfig.port} is in use by another service. Start the ${fwConfig.name} dev server and scan via URL for best results.\n\n`
+                  );
+                } else {
+                  process.stderr.write(
+                    `\n${fwConfig.name} project detected (${path.basename(fwConfig.configPath)}).\n` +
+                    `Start the dev server and scan via URL for best results:\n` +
+                    `  npx impeccable detect http://localhost:${fwConfig.port}\n\n`
+                  );
+                }
               }
             }
           }
@@ -247,6 +258,8 @@ async function detectCli() {
             let fileFindings;
             if (HTML_EXTENSIONS.has(ext)) {
               fileFindings = await detectHtml(file, scanOptions);
+            } else if (DART_EXTENSIONS.has(ext)) {
+              fileFindings = detectDart(fs.readFileSync(file, 'utf-8'), file, scanOptions);
             } else {
               fileFindings = detectText(fs.readFileSync(file, 'utf-8'), file, scanOptions);
             }
@@ -265,6 +278,8 @@ async function detectCli() {
           const ext = path.extname(resolved).toLowerCase();
           if (HTML_EXTENSIONS.has(ext)) {
             allFindings.push(...await detectHtml(resolved, scanOptions));
+          } else if (DART_EXTENSIONS.has(ext)) {
+            allFindings.push(...detectDart(fs.readFileSync(resolved, 'utf-8'), resolved, scanOptions));
           } else {
             allFindings.push(...detectText(fs.readFileSync(resolved, 'utf-8'), resolved, scanOptions));
           }

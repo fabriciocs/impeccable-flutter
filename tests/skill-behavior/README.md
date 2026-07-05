@@ -12,9 +12,9 @@ contract.
 ## Run
 
 ```bash
-bun run test:skill-behavior
-IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1 bun run test:skill-behavior   # dump per-scenario traces
-IMPECCABLE_SKILL_BEHAVIOR_MODELS=claude-sonnet-4-6 bun run test:skill-behavior   # scope to one model
+npm run test:skill-behavior
+IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1 npm run test:skill-behavior   # dump per-scenario traces
+IMPECCABLE_SKILL_BEHAVIOR_MODELS=claude-sonnet-4-6 npm run test:skill-behavior   # scope to one model
 ```
 
 Requires `.env` at repo root with at least one of `ANTHROPIC_API_KEY`,

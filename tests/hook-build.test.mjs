@@ -114,7 +114,7 @@ describe('generated hook artifacts in repo', () => {
   ]) {
     it(`${rel} exists and is valid JSON`, () => {
       const abs = path.join(REPO_ROOT, rel);
-      assert.ok(fs.existsSync(abs), `${rel} missing - did you forget bun run build?`);
+      assert.ok(fs.existsSync(abs), `${rel} missing - did you forget npm run build?`);
       assert.doesNotThrow(() => JSON.parse(fs.readFileSync(abs, 'utf8')));
     });
   }
@@ -193,7 +193,7 @@ describe('generated hook artifacts in repo', () => {
 
   it('packages the Claude design hook in the plugin via plugin-root paths', () => {
     const abs = path.join(REPO_ROOT, 'plugin/hooks/hooks.json');
-    assert.ok(fs.existsSync(abs), 'plugin/hooks/hooks.json missing - did you forget bun run build:release?');
+    assert.ok(fs.existsSync(abs), 'plugin/hooks/hooks.json missing - did you forget npm run build:release?');
 
     const manifest = readJson('plugin/hooks/hooks.json');
     assert.deepEqual(manifest, buildClaudePluginHooksManifest());

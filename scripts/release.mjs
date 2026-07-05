@@ -5,7 +5,7 @@
 // Usage: node scripts/release.mjs <skill|cli|extension> [--dry-run]
 //
 // Refuses on a dirty tree, an unpushed HEAD, or a missing changelog entry.
-// For the skill component, also reruns `bun run build:release` and refuses if the
+// For the skill component, also reruns `npm run build:release` and refuses if the
 // regenerated harness directories drift from what is committed.
 
 import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
@@ -23,7 +23,7 @@ const COMPONENTS = {
     tagPrefix: 'skill-v',
     label: 'Skill',
     changelogLabel: 'v',
-    buildCmd: 'bun run build:release',
+    buildCmd: 'npm run build:release',
     artifacts: ['dist/universal.zip'],
     postReleaseHint: null,
     tweetHeader: (v) => `Impeccable v${v} is out.`,
@@ -45,7 +45,7 @@ const COMPONENTS = {
     tagPrefix: 'ext-v',
     label: 'Extension',
     changelogLabel: 'Extension v',
-    buildCmd: 'bun run build:extension',
+    buildCmd: 'npm run build:extension',
     artifacts: ['dist/extension.zip', 'dist/extension-firefox.zip'],
     postReleaseHint:
       'Upload `dist/extension.zip` to the Chrome Web Store dashboard, and `dist/extension-firefox.zip` to addons.mozilla.org (AMO), to publish.',

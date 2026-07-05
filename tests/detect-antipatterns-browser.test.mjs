@@ -1,12 +1,12 @@
 /**
- * Puppeteer-backed fixture tests for browser-only detection rules.
+ * puppeteer-core-backed fixture tests for browser-only detection rules.
  *
  * Some detection rules (cramped-padding, line-length, body-text-viewport-edge)
  * need real browser layout — they read getBoundingClientRect and real
  * getComputedStyle results that the static HTML/CSS engine intentionally
  * does not invent.
  *
- * This file uses detectUrl() (Puppeteer) to load fixtures in headless Chrome
+ * This file uses detectUrl() (puppeteer-core) to load fixtures in local headless Chrome/Edge
  * via a temporary static HTTP server, so the fixtures can use absolute
  * <script src="/js/..."> paths just like in development.
  *
@@ -21,6 +21,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createBrowserDetector, detectUrl, normalizeDesignSystem } from '../cli/engine/detect-antipatterns.mjs';
 import { filterDetectionFindings } from '../cli/lib/impeccable-config.mjs';
+import { launchLocalBrowser } from '../cli/engine/node/local-browser.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -204,11 +205,7 @@ describe('detectUrl — browser-only fixtures', () => {
   });
 
   it('typography side-by-side: element-level flag cases get regular overlays', async () => {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
-    });
+    const browser = await launchLocalBrowser({ headless: true });
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 800 });
@@ -357,11 +354,7 @@ describe('detectUrl — browser-only fixtures', () => {
   });
 
   it('browser API: visual contrast fallback resolves readable image backgrounds without overlays', async () => {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
-    });
+    const browser = await launchLocalBrowser({ headless: true });
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 800 });
@@ -395,11 +388,7 @@ describe('detectUrl — browser-only fixtures', () => {
   });
 
   it('browser API: visual contrast scan decorates visible findings without scrolling by default', async () => {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
-    });
+    const browser = await launchLocalBrowser({ headless: true });
     try {
       const page = await browser.newPage();
       // Keep three failing visual-contrast cards in the no-scroll viewport;
@@ -501,7 +490,10 @@ describe('detectUrl — browser-only fixtures', () => {
         const target = [...document.querySelectorAll('p')]
           .find(node => /Muted gray text on a misty image/i.test(node.textContent || ''));
         target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
-        await new Promise(resolve => setTimeout(resolve, 250));
+        const deadline = Date.now() + 1500;
+        while (Date.now() < deadline && !target?._impeccableOverlay) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
         return {
           overlays: document.querySelectorAll('.impeccable-overlay:not(.impeccable-banner)').length,
           labels: document.querySelectorAll('.impeccable-label').length,
@@ -527,7 +519,10 @@ describe('detectUrl — browser-only fixtures', () => {
         });
         const staleCleared = !target?._impeccableOverlay;
         target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
-        await new Promise(resolve => setTimeout(resolve, 250));
+        const deadline = Date.now() + 1500;
+        while (Date.now() < deadline && !target?._impeccableOverlay) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
         return {
           staleCleared,
           targetHasOverlay: Boolean(target?._impeccableOverlay),
@@ -576,11 +571,7 @@ describe('detectUrl — browser-only fixtures', () => {
   });
 
   it('extension mode remove cancels pending lazy visual contrast work', async () => {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
-    });
+    const browser = await launchLocalBrowser({ headless: true });
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 800 });
@@ -639,11 +630,7 @@ describe('detectUrl — browser-only fixtures', () => {
   });
 
   it('extension mode reports async visual contrast errors to the panel', async () => {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
-    });
+    const browser = await launchLocalBrowser({ headless: true });
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 800 });
@@ -703,11 +690,7 @@ describe('detectUrl — browser-only fixtures', () => {
   });
 
   it('extension mode echoes scan ids on result messages', async () => {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
-    });
+    const browser = await launchLocalBrowser({ headless: true });
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 800 });
@@ -758,14 +741,13 @@ describe('detectUrl — browser-only fixtures', () => {
   });
 
   it('browser API: impeccableDetect is pure, impeccableScan decorates', async () => {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
-    });
+    const browser = await launchLocalBrowser({ headless: true });
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 800 });
+      await page.evaluateOnNewDocument(() => {
+        window.__IMPECCABLE_CONFIG__ = { autoScan: false };
+      });
       await page.goto(`${baseUrl}/fixtures/antipatterns/quality.html`, { waitUntil: 'load' });
       const browserScript = fs.readFileSync(path.join(ROOT, 'cli/engine/detect-antipatterns-browser.js'), 'utf-8');
       await page.evaluate(() => { window.__IMPECCABLE_CONFIG__ = { autoScan: false }; });
@@ -794,14 +776,13 @@ describe('detectUrl — browser-only fixtures', () => {
   });
 
   it('browser API: async scan and detect reject instead of throwing synchronously', async () => {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
-    });
+    const browser = await launchLocalBrowser({ headless: true });
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 800 });
+      await page.evaluateOnNewDocument(() => {
+        window.__IMPECCABLE_CONFIG__ = { autoScan: false };
+      });
       await page.goto(`${baseUrl}/fixtures/antipatterns/quality.html`, { waitUntil: 'load' });
       const browserScript = fs.readFileSync(path.join(ROOT, 'cli/engine/detect-antipatterns-browser.js'), 'utf-8');
       await page.evaluate(() => { window.__IMPECCABLE_CONFIG__ = { autoScan: false }; });

@@ -40,19 +40,19 @@
     "LICENSE"
   ],
   "scripts": {
-    "build:skills": "bun run scripts/build.js --skip-root-sync",
-    "build:skills:release": "bun run scripts/build.js",
-    "build:site": "npx astro build",
-    "build": "bun run build:skills && bun run build:site && cp -R dist build/_data/dist",
-    "build:release": "bun run build:skills:release && bun run build:site && cp -R dist build/_data/dist",
+    "build:skills": "node scripts/build.js --skip-root-sync",
+    "build:skills:release": "node scripts/build.js",
+    "build:site": "astro build",
+    "build": "npm run build:skills && npm run build:site && node scripts/copy-dist-to-build.mjs",
+    "build:release": "npm run build:skills:release && npm run build:site && node scripts/copy-dist-to-build.mjs",
     "build:browser": "node scripts/build-browser-detector.js",
     "build:extension": "node scripts/build-extension.js",
-    "clean": "rm -rf dist build",
-    "rebuild": "bun run clean && bun run build",
-    "rebuild:release": "bun run clean && bun run build:release",
-    "dev": "bun run scripts/gen-dev-api.mjs && npx astro dev",
-    "preview": "bun run build && npx astro preview",
-    "deploy": "bun run build && wrangler pages deploy build/",
+    "clean": "node scripts/clean-build.mjs",
+    "rebuild": "npm run clean && npm run build",
+    "rebuild:release": "npm run clean && npm run build:release",
+    "dev": "node scripts/gen-dev-api.mjs && astro dev",
+    "preview": "npm run build && astro preview",
+    "deploy": "npm run build && wrangler pages deploy build/",
     "test": "node scripts/run-tests.mjs default",
     "test:core": "node scripts/run-tests.mjs core",
     "test:detector": "node scripts/run-tests.mjs detector",
@@ -68,14 +68,14 @@
     "smoke:hooks": "node scripts/smoke-provider-hooks.mjs",
     "bench:detector": "node scripts/benchmark-detector.mjs",
     "bench:detector:browser": "node scripts/benchmark-detector.mjs --browser",
-    "audit": "bun audit --audit-level=moderate",
-    "prepack": "cp README.md README.repo.md && cp README.npm.md README.md",
-    "postpack": "cp README.repo.md README.md && rm README.repo.md",
+    "audit": "npm audit --audit-level=moderate",
+    "prepack": "node scripts/package-readme.mjs prepack",
+    "postpack": "node scripts/package-readme.mjs postpack",
     "release:skill": "node scripts/release.mjs skill",
     "release:cli": "node scripts/release.mjs cli",
     "release:ext": "node scripts/release.mjs extension",
-    "screenshot": "bun run scripts/screenshot-antipatterns.js",
-    "og-image": "bun run scripts/generate-og-image.js"
+    "screenshot": "node scripts/screenshot-antipatterns.js",
+    "og-image": "node scripts/generate-og-image.js"
   },
   "dependencies": {
     "css-select": "^7.0.0",
@@ -86,7 +86,7 @@
     "marked": "^18.0.5"
   },
   "optionalDependencies": {
-    "puppeteer": "^25.1.0"
+    "puppeteer-core": "^25.3.0"
   },
   "devDependencies": {
     "@ai-sdk/anthropic": "^4.0.7",
@@ -103,7 +103,6 @@
     "modern-screenshot": "^4.7.0",
     "motion": "^12.38.0",
     "opentype.js": "^2.0.0",
-    "playwright": "^1.59.1",
     "wrangler": "^4.85.0",
     "zod": "^4.3.6"
   }

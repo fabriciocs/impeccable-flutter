@@ -20,7 +20,7 @@ const defaultProviders = ['direct', 'claude', 'codex', 'cursor'];
 const args = parseArgs(process.argv.slice(2));
 if (args.help || args.h || !args.repo) {
   const usage = [
-    'Usage: bun run smoke:hooks -- --repo <target-repo> [--bundle dist/universal.zip] [--providers direct,claude,codex,cursor]',
+    'Usage: npm run smoke:hooks -- --repo <target-repo> [--bundle dist/universal.zip] [--providers direct,claude,codex,cursor]',
     '',
     'The target repo must be explicit so this local smoke does not depend on one contributor machine path.',
   ].join('\n');
@@ -665,7 +665,7 @@ function runProviderAgentFontException(provider, rel) {
     if (res.error || res.status !== 0) {
       const output = `${res.stdout}\n${res.stderr}\n${res.error?.message || ''}`;
       if (/Authentication required|agent login|CURSOR_API_KEY/i.test(output)) {
-        const err = new Error('Cursor CLI authentication required. Run `agent login` or set CURSOR_API_KEY, then rerun `bun run smoke:hooks -- --providers=cursor`.');
+        const err = new Error('Cursor CLI authentication required. Run `agent login` or set CURSOR_API_KEY, then rerun `npm run smoke:hooks -- --providers=cursor`.');
         err.classification = 'cursor auth required';
         throw err;
       }
@@ -842,7 +842,7 @@ function runCursorProviderSmoke() {
   if (res.error || res.status !== 0) {
     const output = `${res.stdout}\n${res.stderr}\n${res.error?.message || ''}`;
     if (/Authentication required|agent login|CURSOR_API_KEY/i.test(output)) {
-      const err = new Error('Cursor CLI authentication required. Run `agent login` or set CURSOR_API_KEY, then rerun `bun run smoke:hooks -- --providers=cursor`.');
+      const err = new Error('Cursor CLI authentication required. Run `agent login` or set CURSOR_API_KEY, then rerun `npm run smoke:hooks -- --providers=cursor`.');
       err.classification = 'cursor auth required';
       throw err;
     }

@@ -7,7 +7,7 @@
  *   - live-server.mjs --background (returns {pid, port, token})
  *   - live-inject.mjs --port (patches the framework HTML entry)
  *   - the fixture's framework dev server (vite, vite dev, npx vite, ...)
- *   - Playwright Chromium page
+ *   - puppeteer-core page backed by local Chrome/Edge
  *   - the fake-agent poll loop (in this same node process)
  *
  * Returns handles + a single `teardown()` that cleans them all up in order.
@@ -200,7 +200,7 @@ export async function stopDevServer(child) {
  * @param {object} opts
  * @param {string} opts.name              fixture name
  * @param {object} opts.fixture           fixture.json contents
- * @param {import('playwright').Browser} opts.browser   shared browser instance
+ * @param {import('puppeteer-core').Browser} opts.browser   shared browser instance
  * @param {object} opts.agent             VariantAgent (defaults to fake)
  * @param {object|function=} opts.wrapTarget live-wrap target or event mapper
  * @param {(msg: string) => void} [opts.log]

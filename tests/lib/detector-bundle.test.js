@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from '../bun-test-shim.mjs';
 import fs from 'fs';
 import path from 'path';
 import { readSourceFiles } from '../../scripts/lib/utils.js';

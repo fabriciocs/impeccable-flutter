@@ -34,6 +34,18 @@ Identify weaknesses and edge cases:
 
 Systematically improve resilience:
 
+### Flutter/Dart Hardening
+
+For Flutter targets, harden the widget tree and app lifecycle in addition to the visual output:
+
+- Handle long text with deliberate `softWrap`, `overflow`, `maxLines`, `Flexible`, `Expanded`, and scroll containers. Test with larger text scale, long translations, RTL, CJK, emoji, and narrow constraints.
+- Avoid brittle fixed widths and heights in `Row`, `Column`, and card layouts. Use constraints, `LayoutBuilder`, `Wrap`, and slivers where the content shape requires them.
+- Give every custom action a semantic label, focus path, keyboard activation where relevant, and a visible pressed/focused state.
+- Model loading, empty, error, retry, offline, permission, and partial-data states as first-class widgets instead of leaving blank containers.
+- Dispose controllers, animation controllers, streams, subscriptions, timers, and focus nodes. Guard async state updates after unmount and cancel pending work where the API allows it.
+- Prefer localized strings and formatting APIs over embedded English assumptions. Preserve right-to-left layouts with directional padding/alignment where the project supports i18n.
+- Validate with `flutter analyze` and `flutter test` when available. Add widget tests for state boundaries and semantics when the project already has Flutter tests.
+
 ### Text Overflow & Wrapping
 
 **Long text handling**:

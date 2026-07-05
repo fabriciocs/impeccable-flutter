@@ -33,9 +33,11 @@ export {
 export { detectHtml } from './engines/static-html/detect-html.mjs';
 export { detectUrl, createBrowserDetector } from './engines/browser/detect-url.mjs';
 export { detectText, extractStyleBlocks, extractCSSinJS } from './engines/regex/detect-text.mjs';
+export { detectDart } from './engines/flutter-dart/detect-dart.mjs';
 export {
   walkDir,
   SCANNABLE_EXTENSIONS,
+  DART_EXTENSIONS,
   SKIP_DIRS,
   buildImportGraph,
   resolveImport,

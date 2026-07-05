@@ -6,6 +6,7 @@ import { finding } from '../../findings.mjs';
 import { filterByProviders } from '../../registry/antipatterns.mjs';
 import { profileFindingsAsync, profileStep, profileStepAsync } from '../../profile/profiler.mjs';
 import { captureVisualContrastCandidate } from '../visual/screenshot-contrast.mjs';
+import { launchLocalBrowser } from '../../node/local-browser.mjs';
 
 function serializeDesignSystemForBrowser(designSystem) {
   if (!designSystem?.present) return null;
@@ -109,19 +110,6 @@ async function detectUrl(url, options = {}) {
   const settleMs = Number.isFinite(options?.settleMs) ? options.settleMs : 0;
   const viewport = options?.viewport || { width: 1280, height: 800 };
   const externalBrowser = options?.browser || null;
-  let puppeteer;
-  if (!externalBrowser) {
-    try {
-      puppeteer = await profileStepAsync(profile, {
-        engine: 'browser',
-        phase: 'setup',
-        ruleId: 'import-puppeteer',
-        target: url,
-      }, () => import('puppeteer'));
-    } catch {
-      throw new Error('puppeteer is required for URL scanning. Install: npm install puppeteer');
-    }
-  }
 
   // Read the browser detection script — reuse it instead of reimplementing
   const browserScriptPath = path.resolve(
@@ -142,16 +130,17 @@ async function detectUrl(url, options = {}) {
     throw new Error(`Browser script not found at ${browserScriptPath}`);
   }
 
-  // CI runners (GitHub Actions Ubuntu) block unprivileged user namespaces, so
-  // Chrome can't initialize its sandbox there. Disable the sandbox only when
-  // running in CI; local users keep the default hardened launch.
-  const launchArgs = process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [];
+  const launchArgs = options.launchArgs || [];
   const browser = externalBrowser || await profileStepAsync(profile, {
     engine: 'browser',
     phase: 'load',
     ruleId: 'launch-browser',
     target: url,
-  }, () => puppeteer.default.launch({ headless: true, args: launchArgs }));
+  }, () => launchLocalBrowser({
+    headless: true,
+    args: launchArgs,
+    executablePath: options.executablePath,
+  }));
   const page = await profileStepAsync(profile, {
     engine: 'browser',
     phase: 'load',
@@ -242,16 +231,11 @@ async function detectUrl(url, options = {}) {
 }
 
 async function createBrowserDetector(options = {}) {
-  let puppeteer;
-  try {
-    puppeteer = await import('puppeteer');
-  } catch {
-    throw new Error('puppeteer is required for URL scanning. Install: npm install puppeteer');
-  }
-  const launchArgs = options.launchArgs || (process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : []);
-  const browser = options.browser || await puppeteer.default.launch({
+  const launchArgs = options.launchArgs || [];
+  const browser = options.browser || await launchLocalBrowser({
     headless: options.headless ?? true,
     args: launchArgs,
+    executablePath: options.executablePath,
   });
   const ownsBrowser = !options.browser;
   const defaults = {

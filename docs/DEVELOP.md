@@ -45,20 +45,21 @@ Your skill instructions here...
 ## Building
 
 ### Prerequisites
-- Bun (fast JavaScript runtime and package manager)
-- No external dependencies required
+- Node.js 24+
+- npm
+- Chrome or Edge installed locally for browser automation through `puppeteer-core`
 
 ### Commands
 
 ```bash
 # Build all provider formats
-bun run build
+npm run build
 
 # Clean dist folder
-bun run clean
+npm run clean
 
 # Rebuild from scratch
-bun run rebuild
+npm run rebuild
 ```
 
 ### What Gets Generated
@@ -108,7 +109,7 @@ scripts/
    }
    ```
 
-3. Run `bun run build` -- the provider is automatically picked up by the build loop.
+3. Run `npm run build` -- the provider is automatically picked up by the build loop.
 
 4. Update `HARNESSES.md` with the provider's capabilities.
 
@@ -134,9 +135,9 @@ scripts/
 ## Testing
 
 ```bash
-bun run test                  # Default suite — unit + static fixtures (no API keys needed)
-bun run test:live-e2e         # Opt-in — full-cycle live-mode E2E across framework fixtures (~2 min, needs `npx playwright install chromium` once)
-bun run test:skill-behavior   # Opt-in — LLM-backed checks that the SKILL.md Setup flow actually drives the agent (~5 min, costs cents, needs `.env`)
+npm run test                  # Default suite — unit + static fixtures (no API keys needed)
+npm run test:live-e2e         # Opt-in — full-cycle live-mode E2E across framework fixtures (~2 min, needs Chrome/Edge local via puppeteer-core)
+npm run test:skill-behavior   # Opt-in — LLM-backed checks that the SKILL.md Setup flow actually drives the agent (~5 min, costs cents, needs `.env`)
 ```
 
 The skill-behavior suite runs three providers (claude-haiku-4-5, gpt-5.4-mini, gemini-3.1-flash-lite — the cheapest tier of each, every run) with the source `skill/SKILL.src.md` inlined as the system prompt and a workspace-scoped `bash`/`read`/`write`/`list` tool set. It then asserts on the tool-call trace, not on free-form output. Use it whenever you edit `skill/SKILL.src.md`'s Setup section, `skill/scripts/context.mjs`, or any Setup-touching reference (`teach.md`, `document.md`, `brand.md`, `product.md`, sub-command refs). Per-scenario assertions and the current baseline (21-22/24) live in `tests/skill-behavior/README.md`. Provider keys live in repo-root `.env` (gitignored); missing keys skip cleanly.
@@ -150,7 +151,7 @@ The skill-behavior suite runs three providers (claude-haiku-4-5, gpt-5.4-mini, g
 3. **Clear instructions**: LLM should understand exactly what to do
 4. **Include examples**: Where they clarify intent
 5. **State constraints**: What NOT to do as clearly as what to do
-6. **Test across providers**: Verify it works in multiple contexts. For Setup-related edits to `skill/`, `bun run test:skill-behavior` automates this across three providers.
+6. **Test across providers**: Verify it works in multiple contexts. For Setup-related edits to `skill/`, `npm run test:skill-behavior` automates this across three providers.
 
 ## Reference Documentation
 
@@ -188,7 +189,7 @@ impeccable/
         factory.js                 # Config-driven transformer factory
         providers.js               # Provider config map
         index.js                   # Re-exports
-  tests/                           # Bun test suite
+  tests/                           # Node test suite
   docs/
     HARNESSES.md                   # Provider capabilities reference
     STYLE.md                       # Editorial style guide
@@ -207,7 +208,7 @@ impeccable/
 ### Output doesn't match expectations
 - Check the provider config in `scripts/lib/transformers/providers.js`
 - Verify source file has correct frontmatter structure
-- Run `bun run rebuild` to ensure clean build
+- Run `npm run rebuild` to ensure clean build
 
 ### Provider doesn't recognize the files
 - Check installation path for your provider

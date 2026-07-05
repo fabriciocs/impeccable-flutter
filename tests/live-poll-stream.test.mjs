@@ -47,6 +47,21 @@ async function stopServer(port, token) {
   } catch { /* already gone */ }
 }
 
+function terminateProcess(proc) {
+  if (!proc || proc.exitCode !== null) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      if (proc.exitCode === null) proc.kill('SIGKILL');
+      resolve();
+    }, 2000);
+    proc.once('close', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    proc.kill('SIGTERM');
+  });
+}
+
 function readStdoutLine(streamProc, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
     let buffer = '';
@@ -87,9 +102,9 @@ describe('live-poll --stream integration', () => {
   after(async () => {
     if (server?.proc && !server.proc.killed) {
       await stopServer(server.port, server.token);
-      server.proc.kill('SIGTERM');
+      await terminateProcess(server.proc);
     }
-    if (serverCwd) rmSync(serverCwd, { recursive: true, force: true });
+    if (serverCwd) rmSync(serverCwd, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
   it('emits multiple steer events without restarting the poll process', async () => {
@@ -149,7 +164,7 @@ describe('live-poll --stream integration', () => {
       assert.equal(secondEvent.id, '22222222');
       assert.equal(secondEvent.message, 'stream test two');
     } finally {
-      streamProc.kill('SIGTERM');
+      await terminateProcess(streamProc);
     }
   });
 
@@ -197,7 +212,7 @@ describe('live-poll --stream integration', () => {
         type: 'done',
       });
     } finally {
-      streamProc.kill('SIGTERM');
+      await terminateProcess(streamProc);
     }
   });
 });

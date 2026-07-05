@@ -5,7 +5,7 @@
  * runner exercises the entire user-visible chain:
  *
  *   1. Stage → install → start live-server + dev server → inject script tag
- *   2. Open Playwright Chromium, assert the live handshake fires
+ *   2. Open local Chrome/Edge through puppeteer-core, assert the live handshake fires
  *   3. Spawn a deterministic fake-agent polling loop in this same process
  *   4. Steer smoke: submit page-level chat → agent steer_done → bar unlocks
  *   5. Drive the bar UI: pick element → Go → wait CYCLING → cycle → Accept
@@ -16,7 +16,7 @@
  * The fake and LLM agents share one interface — see tests/live-e2e/agent.mjs
  * and tests/live-e2e/agents/llm-agent.mjs.
  *
- * Run with:  bun run test:live-e2e
+ * Run with:  npm run test:live-e2e
  */
 
 import { describe, it, before, after } from 'node:test';
@@ -55,6 +55,7 @@ import {
 } from './live-e2e/ui.mjs';
 import { runSteerSmoke } from './live-e2e/steer.mjs';
 import { runPreActions, waitForCyclingRobust } from './live-e2e/preactions.mjs';
+import { launchLiveBrowser } from './live-e2e/puppeteer-compat.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -101,7 +102,6 @@ if (fixtures.length === 0) {
   });
 }
 
-let playwright;
 let browser;
 
 function parseFixtureFilter(value) {
@@ -127,16 +127,9 @@ function shouldRunScenario(name) {
 before(async () => {
   if (fixtures.length === 0) return;
   try {
-    playwright = await import('playwright');
-  } catch (err) {
-    throw new Error(
-      `Playwright is required for live-e2e tests (${err.message}). Run: npx playwright install chromium`,
-    );
-  }
-  try {
     browser = await launchLiveE2eBrowser();
   } catch (err) {
-    throw new Error(`Failed to launch Chromium (${err.message}). Run: npx playwright install chromium`);
+    throw new Error(`Failed to launch local Chrome/Edge (${err.message}). Set PUPPETEER_EXECUTABLE_PATH if auto-detection fails.`);
   }
 });
 
@@ -145,7 +138,7 @@ after(async () => {
 });
 
 async function launchLiveE2eBrowser() {
-  return playwright.chromium.launch({ headless: true });
+  return launchLiveBrowser({ headless: true });
 }
 
 async function teardownAndResetBrowser(teardown) {

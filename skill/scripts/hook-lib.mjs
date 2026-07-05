@@ -927,6 +927,7 @@ export function parseApplyPatchPaths(command, projectCwd) {
     let p = (m[1] || '').trim();
     if (!p) continue;
     if (!path.isAbsolute(p)) p = path.resolve(projectCwd, p);
+    else p = path.resolve(p);
     out.push(p);
   }
   return out;
@@ -935,9 +936,17 @@ export function parseApplyPatchPaths(command, projectCwd) {
 export function resolveTargetFiles(event, projectCwd) {
   const ti = event?.tool_input;
   const out = [];
+  const seen = new Set();
+  const keyFor = (filePath) => {
+    if (hasPathTraversal(filePath)) return filePath;
+    return path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(projectCwd, filePath);
+  };
   const add = (filePath) => {
     if (typeof filePath !== 'string' || !filePath) return;
-    if (!out.includes(filePath)) out.push(filePath);
+    const key = keyFor(filePath);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(filePath);
   };
 
   if (event?.tool_name === 'apply_patch' && ti && typeof ti.command === 'string') {

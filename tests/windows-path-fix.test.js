@@ -1,6 +1,9 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, test, expect } from './bun-test-shim.mjs';
+import { readFileSync } from 'node:fs';
 import path from 'path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ---------------------------------------------------------------------------
 // Regression: Windows drive-letter doubling (#95)
@@ -38,10 +41,10 @@ describe('Windows path doubling fix (#95)', () => {
     expect(joined).not.toMatch(/[A-Z]:[/\\][A-Z]:/i);
   });
 
-  test('fileURLToPath handles POSIX file URLs correctly', () => {
-    const posixUrl = new URL('file:///home/user/cli/engine/detect-antipatterns.mjs');
-    const resolved = fileURLToPath(posixUrl);
-    expect(resolved).toBe('/home/user/cli/engine/detect-antipatterns.mjs');
+  test('fileURLToPath handles current-platform file URLs correctly', () => {
+    const expected = path.resolve(path.sep, 'home', 'user', 'cli', 'engine', 'detect-antipatterns.mjs');
+    const resolved = fileURLToPath(pathToFileURL(expected));
+    expect(resolved).toBe(expected);
   });
 
   test('import.meta.url produces a valid file URL', () => {
@@ -52,8 +55,7 @@ describe('Windows path doubling fix (#95)', () => {
   });
 
   test('URL detector source no longer uses raw .pathname for path construction', () => {
-    const fs = require('fs');
-    const src = fs.readFileSync(
+    const src = readFileSync(
       path.join(__dirname, '..', 'cli', 'engine', 'engines', 'browser', 'detect-url.mjs'),
       'utf-8'
     );

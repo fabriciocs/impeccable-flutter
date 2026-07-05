@@ -41,6 +41,7 @@ import {
   waitForCycling,
   waitForHandshake,
 } from './live-e2e/ui.mjs';
+import { launchLiveBrowser } from './live-e2e/puppeteer-compat.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_NAME = 'vite8-sveltekit-stateful';
@@ -51,7 +52,6 @@ const EXPECTED_INSERT_PROMPT =
   'Insert a concise muted footnote below the empty expenses card explaining that shared expenses sync automatically.';
 
 const artifactRoot = createArtifactRoot();
-let playwright;
 let browser;
 
 if (!process.env.DEEPSEEK_API_KEY) {
@@ -60,8 +60,7 @@ if (!process.env.DEEPSEEK_API_KEY) {
 
 describe('Svelte live adapter DeepSeek browser sweep', () => {
   before(async () => {
-    playwright = await import('playwright');
-    browser = await playwright.chromium.launch({ headless: true });
+    browser = await launchLiveBrowser({ headless: true });
   });
 
   after(async () => {

@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, mock } from '../../bun-test-shim.mjs';
 import fs from 'fs';
 import path from 'path';
 import { createTransformer } from '../../../scripts/lib/transformers/factory.js';

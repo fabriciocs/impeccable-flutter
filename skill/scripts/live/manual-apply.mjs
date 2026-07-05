@@ -837,7 +837,7 @@ export function collectManualApplyFiles(batch, extraFiles = [], cwd = process.cw
 function normalizeProjectFile(file, cwd = process.cwd()) {
   if (!file || typeof file !== 'string') return null;
   const absolute = path.isAbsolute(file) ? file : path.resolve(cwd, file);
-  const relative = path.relative(cwd, absolute);
+  const relative = toProjectRelative(cwd, absolute);
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
   return relative;
 }
@@ -927,8 +927,12 @@ export function summarizeManualDiagnostics(items, cwd = process.cwd()) {
 export function summarizeManualLogFile(file, cwd = process.cwd()) {
   if (!file || typeof file !== 'string') return undefined;
   if (!path.isAbsolute(file)) return file;
-  const relative = path.relative(cwd, file);
+  const relative = toProjectRelative(cwd, file);
   return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : file;
+}
+
+function toProjectRelative(cwd, file) {
+  return path.relative(cwd, file).split(path.sep).join('/');
 }
 
 export function compactManualLogText(value, max = 200) {

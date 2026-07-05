@@ -7,10 +7,10 @@
  * Requires the dev server to be running on localhost:4321
  */
 
-import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { launchLocalBrowser } from '../cli/engine/node/local-browser.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,11 +35,7 @@ async function screenshotAntipatterns() {
 
   console.log(`📸 Taking screenshots of ${files.length} anti-pattern example(s)...\n`);
 
-  const browser = await chromium.launch();
-  const context = await browser.newContext({
-    viewport: { width: 1200, height: 1200 },
-    deviceScaleFactor: 2, // 2x for high-res output
-  });
+  const browser = await launchLocalBrowser({ headless: true });
 
   for (const file of files) {
     const name = path.basename(file, '.html');
@@ -48,11 +44,12 @@ async function screenshotAntipatterns() {
 
     console.log(`  ${name}...`);
 
-    const page = await context.newPage();
-    await page.goto(url, { waitUntil: 'networkidle' });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1200, height: 1200, deviceScaleFactor: 2 });
+    await page.goto(url, { waitUntil: 'networkidle0' });
 
     // Wait for fonts to load
-    await page.waitForTimeout(500);
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Screenshot the .container element (1080x1080)
     const container = await page.$('.container');
@@ -92,7 +89,7 @@ async function checkServer() {
 async function main() {
   const serverRunning = await checkServer();
   if (!serverRunning) {
-    console.error('❌ Dev server not running. Please start it with: bun run dev');
+    console.error('❌ Dev server not running. Please start it with: npm run dev');
     process.exit(1);
   }
 

@@ -3,7 +3,7 @@
 /**
  * Generate OG Image (Neo Kinpaku brand)
  *
- * Renders the social sharing card with Playwright using the real Kinpaku
+ * Renders the social sharing card with puppeteer-core using the real Kinpaku
  * tokens (lacquer ground, champagne headline, kinpaku-gold accent) and the
  * kintsugi-seam hero art. Renders at 2x and downscales with sharp for crisp
  * text. The command count is read live from command-metadata.json so it can
@@ -13,15 +13,15 @@
  * and index.astro reference). Bump the version suffix here and in those two
  * files together when you want social scrapers to re-fetch a fresh card.
  *
- * Usage: bun run og-image
+ * Usage: npm run og-image
  */
 
-import { chromium } from 'playwright';
 import sharp from 'sharp';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { launchLocalBrowser } from '../cli/engine/node/local-browser.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -141,20 +141,18 @@ async function generateOgImage() {
 </body>
 </html>`;
 
-  const browser = await chromium.launch();
-  const page = await browser.newPage({
-    viewport: { width: 1200, height: 630 },
-    deviceScaleFactor: 2,
-  });
+  const browser = await launchLocalBrowser({ headless: true });
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1200, height: 630, deviceScaleFactor: 2 });
 
   // Write to a temp file and load via file:// so networkidle waits for the
   // art (a file:// page can reference file:// resources; data: cannot).
   const tmpHtml = path.join(os.tmpdir(), `impeccable-og-${process.pid}.html`);
   fs.writeFileSync(tmpHtml, html);
   try {
-    await page.goto(pathToFileURL(tmpHtml).href, { waitUntil: 'networkidle' });
+    await page.goto(pathToFileURL(tmpHtml).href, { waitUntil: 'networkidle0' });
     await page.evaluate(() => document.fonts.ready);
-    await page.waitForTimeout(200);
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     // Screenshot at 2x (2400x1260), then downscale to 1200x630 for crisp text.
     const buf = await page.screenshot({ clip: { x: 0, y: 0, width: 1200, height: 630 } });

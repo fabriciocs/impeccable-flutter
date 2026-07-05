@@ -1,5 +1,5 @@
 /**
- * Steer handler unit tests (no Playwright).
+ * Steer handler unit tests (no browser automation).
  * Run with: node --test tests/live-e2e-steer-agent.test.mjs
  */
 

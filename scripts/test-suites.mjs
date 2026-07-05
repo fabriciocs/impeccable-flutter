@@ -12,7 +12,7 @@ export const OPT_IN_SUITES = [
 
 const COMMON_INFRA_PATTERNS = [
   /^package\.json$/,
-  /^bun\.lock$/,
+  /^package-lock\.json$/,
   /^scripts\/run-tests\.mjs$/,
   /^scripts\/test-suites\.mjs$/,
   /^scripts\/ci-test-plan\.mjs$/,
@@ -34,7 +34,7 @@ export const SUITES = {
     ],
     commands: [
       {
-        runner: 'bun',
+        runner: 'node',
         files: [
           'tests/build.test.js',
           'tests/cli-ignores.test.js',
@@ -83,7 +83,7 @@ export const SUITES = {
     ],
     commands: [
       {
-        runner: 'bun',
+        runner: 'node',
         files: [
           'tests/detect-antipatterns.test.js',
           'tests/inline-ignores.test.mjs',
@@ -95,6 +95,9 @@ export const SUITES = {
         files: [
           'tests/extension-build.test.mjs',
           'tests/design-system.test.mjs',
+          'tests/file-system-dart.test.mjs',
+          'tests/cli-flutter-dart.test.mjs',
+          'tests/detect-flutter-dart.test.mjs',
           'tests/detect-antipatterns-fixtures.test.mjs',
           'tests/detect-antipatterns-browser.test.mjs',
         ],
@@ -161,7 +164,10 @@ export const SUITES = {
     commands: [
       {
         runner: 'node',
-        files: ['tests/framework-fixtures.test.mjs'],
+        files: [
+          'tests/framework-detection-flutter.test.mjs',
+          'tests/framework-fixtures.test.mjs',
+        ],
       },
     ],
   },
@@ -169,8 +175,11 @@ export const SUITES = {
     description: 'Deterministic CLI install/update tests against a local universal bundle.',
     commands: [
       {
-        runner: 'bun',
-        files: ['tests/skills-cli.test.js'],
+        runner: 'node',
+        files: [
+          'tests/skills-cli.test.js',
+          'tests/cli-flutter-dart.test.mjs',
+        ],
       },
     ],
   },
@@ -184,16 +193,16 @@ export const SUITES = {
     ],
     commands: [
       {
-        runner: 'bun',
+        runner: 'node',
         env: { IMPECCABLE_CLI_REMOTE_E2E: '1' },
         files: ['tests/skills-cli.test.js'],
       },
     ],
   },
   'live-e2e': {
-    description: 'Full Playwright live-mode click-to-accept sweep across runtime framework fixtures.',
+    description: 'Full puppeteer-core live-mode click-to-accept sweep across runtime framework fixtures.',
     optIn: true,
-    needsPlaywright: true,
+    needsPuppeteer: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^skill\/scripts\/live/,
@@ -212,7 +221,7 @@ export const SUITES = {
   'live-e2e-accept-cleanup': {
     description: 'Provider-backed post-accept cleanup regression.',
     optIn: true,
-    needsPlaywright: true,
+    needsPuppeteer: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^skill\/scripts\/(live-accept|live-browser|live-server|live-wrap)\.mjs$/,
@@ -258,7 +267,7 @@ export const SUITES = {
   'live-svelte-adapter-deepseek': {
     description: 'DeepSeek-backed Svelte adapter browser sweep.',
     optIn: true,
-    needsPlaywright: true,
+    needsPuppeteer: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^skill\/scripts\/(live-server|live-wrap)\.mjs$/,

@@ -6,10 +6,10 @@
  * Run: node scripts/generate-promo-tile.js
  */
 
-import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { launchLocalBrowser } from '../cli/engine/node/local-browser.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -126,7 +126,7 @@ const svg = `
 </svg>
 `;
 
-const browser = await puppeteer.launch({ headless: true });
+const browser = await launchLocalBrowser({ headless: true });
 const page = await browser.newPage();
 await page.setViewport({ width: 440, height: 280, deviceScaleFactor: 1 });
 await page.setContent(`

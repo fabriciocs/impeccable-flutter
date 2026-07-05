@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach } from './bun-test-shim.mjs';
 import fs from 'fs';
 import path from 'path';
 import * as utils from '../scripts/lib/utils.js';
@@ -18,111 +18,6 @@ describe('build orchestration', () => {
     if (fs.existsSync(TEST_DIR)) {
       fs.rmSync(TEST_DIR, { recursive: true, force: true });
     }
-  });
-
-  test('should call readSourceFiles with root directory', () => {
-    const readSourceFilesSpy = spyOn(utils, 'readSourceFiles').mockReturnValue({
-      skills: []
-    });
-
-    const transformCursorSpy = spyOn(transformers, 'transformCursor').mockImplementation(() => {});
-    const transformClaudeCodeSpy = spyOn(transformers, 'transformClaudeCode').mockImplementation(() => {});
-    const transformGeminiSpy = spyOn(transformers, 'transformGemini').mockImplementation(() => {});
-    const transformCodexSpy = spyOn(transformers, 'transformCodex').mockImplementation(() => {});
-
-    // Simulate the build process
-    const ROOT_DIR = TEST_DIR;
-    const DIST_DIR = path.join(ROOT_DIR, 'dist');
-
-    const { skills } = utils.readSourceFiles(ROOT_DIR);
-    const patterns = utils.readPatterns(ROOT_DIR);
-    transformers.transformCursor(skills, DIST_DIR, patterns);
-    transformers.transformClaudeCode(skills, DIST_DIR, patterns);
-    transformers.transformGemini(skills, DIST_DIR, patterns);
-    transformers.transformCodex(skills, DIST_DIR, patterns);
-
-    expect(readSourceFilesSpy).toHaveBeenCalledWith(ROOT_DIR);
-
-    readSourceFilesSpy.mockRestore();
-    transformCursorSpy.mockRestore();
-    transformClaudeCodeSpy.mockRestore();
-    transformGeminiSpy.mockRestore();
-    transformCodexSpy.mockRestore();
-  });
-
-  test('should call all transformers with correct arguments', () => {
-    const skills = [
-      { name: 'skill1', description: 'Skill 1', license: 'MIT', body: 'Skill body 1' }
-    ];
-    const patterns = { patterns: [], antipatterns: [] };
-
-    const readSourceFilesSpy = spyOn(utils, 'readSourceFiles').mockReturnValue({
-      skills
-    });
-    const readPatternsSpy = spyOn(utils, 'readPatterns').mockReturnValue(patterns);
-
-    const transformCursorSpy = spyOn(transformers, 'transformCursor').mockImplementation(() => {});
-    const transformClaudeCodeSpy = spyOn(transformers, 'transformClaudeCode').mockImplementation(() => {});
-    const transformGeminiSpy = spyOn(transformers, 'transformGemini').mockImplementation(() => {});
-    const transformCodexSpy = spyOn(transformers, 'transformCodex').mockImplementation(() => {});
-
-    const ROOT_DIR = TEST_DIR;
-    const DIST_DIR = path.join(ROOT_DIR, 'dist');
-
-    const sourceFiles = utils.readSourceFiles(ROOT_DIR);
-    const patternData = utils.readPatterns(ROOT_DIR);
-    transformers.transformCursor(sourceFiles.skills, DIST_DIR, patternData);
-    transformers.transformClaudeCode(sourceFiles.skills, DIST_DIR, patternData);
-    transformers.transformGemini(sourceFiles.skills, DIST_DIR, patternData);
-    transformers.transformCodex(sourceFiles.skills, DIST_DIR, patternData);
-
-    expect(transformCursorSpy).toHaveBeenCalledWith(skills, DIST_DIR, patterns);
-    expect(transformClaudeCodeSpy).toHaveBeenCalledWith(skills, DIST_DIR, patterns);
-    expect(transformGeminiSpy).toHaveBeenCalledWith(skills, DIST_DIR, patterns);
-    expect(transformCodexSpy).toHaveBeenCalledWith(skills, DIST_DIR, patterns);
-
-    readSourceFilesSpy.mockRestore();
-    readPatternsSpy.mockRestore();
-    transformCursorSpy.mockRestore();
-    transformClaudeCodeSpy.mockRestore();
-    transformGeminiSpy.mockRestore();
-    transformCodexSpy.mockRestore();
-  });
-
-  test('should handle empty source files', () => {
-    const patterns = { patterns: [], antipatterns: [] };
-
-    const readSourceFilesSpy = spyOn(utils, 'readSourceFiles').mockReturnValue({
-      skills: []
-    });
-    const readPatternsSpy = spyOn(utils, 'readPatterns').mockReturnValue(patterns);
-
-    const transformCursorSpy = spyOn(transformers, 'transformCursor').mockImplementation(() => {});
-    const transformClaudeCodeSpy = spyOn(transformers, 'transformClaudeCode').mockImplementation(() => {});
-    const transformGeminiSpy = spyOn(transformers, 'transformGemini').mockImplementation(() => {});
-    const transformCodexSpy = spyOn(transformers, 'transformCodex').mockImplementation(() => {});
-
-    const ROOT_DIR = TEST_DIR;
-    const DIST_DIR = path.join(ROOT_DIR, 'dist');
-
-    const { skills } = utils.readSourceFiles(ROOT_DIR);
-    const patternData = utils.readPatterns(ROOT_DIR);
-    transformers.transformCursor(skills, DIST_DIR, patternData);
-    transformers.transformClaudeCode(skills, DIST_DIR, patternData);
-    transformers.transformGemini(skills, DIST_DIR, patternData);
-    transformers.transformCodex(skills, DIST_DIR, patternData);
-
-    expect(transformCursorSpy).toHaveBeenCalledWith([], DIST_DIR, patterns);
-    expect(transformClaudeCodeSpy).toHaveBeenCalledWith([], DIST_DIR, patterns);
-    expect(transformGeminiSpy).toHaveBeenCalledWith([], DIST_DIR, patterns);
-    expect(transformCodexSpy).toHaveBeenCalledWith([], DIST_DIR, patterns);
-
-    readSourceFilesSpy.mockRestore();
-    readPatternsSpy.mockRestore();
-    transformCursorSpy.mockRestore();
-    transformClaudeCodeSpy.mockRestore();
-    transformGeminiSpy.mockRestore();
-    transformCodexSpy.mockRestore();
   });
 
   test('integration: full build creates all expected outputs', () => {
@@ -265,47 +160,6 @@ Please audit {{target}} for technical quality. Ask {{model}} for help.`;
     const codexContent = fs.readFileSync(path.join(DIST_DIR, 'codex/.codex/skills/audit/SKILL.md'), 'utf-8');
     expect(codexContent).toContain('{{target}}'); // No body transform, placeholder preserved
     expect(codexContent).toContain('GPT');
-  });
-
-  test('should call transformers in correct order', () => {
-    const callOrder = [];
-
-    const readSourceFilesSpy = spyOn(utils, 'readSourceFiles').mockReturnValue({
-      skills: []
-    });
-    const readPatternsSpy = spyOn(utils, 'readPatterns').mockReturnValue({ patterns: [], antipatterns: [] });
-
-    const transformCursorSpy = spyOn(transformers, 'transformCursor').mockImplementation(() => {
-      callOrder.push('cursor');
-    });
-    const transformClaudeCodeSpy = spyOn(transformers, 'transformClaudeCode').mockImplementation(() => {
-      callOrder.push('claude-code');
-    });
-    const transformGeminiSpy = spyOn(transformers, 'transformGemini').mockImplementation(() => {
-      callOrder.push('gemini');
-    });
-    const transformCodexSpy = spyOn(transformers, 'transformCodex').mockImplementation(() => {
-      callOrder.push('codex');
-    });
-
-    const ROOT_DIR = TEST_DIR;
-    const DIST_DIR = path.join(ROOT_DIR, 'dist');
-
-    const { skills } = utils.readSourceFiles(ROOT_DIR);
-    const patterns = utils.readPatterns(ROOT_DIR);
-    transformers.transformCursor(skills, DIST_DIR, patterns);
-    transformers.transformClaudeCode(skills, DIST_DIR, patterns);
-    transformers.transformGemini(skills, DIST_DIR, patterns);
-    transformers.transformCodex(skills, DIST_DIR, patterns);
-
-    expect(callOrder).toEqual(['cursor', 'claude-code', 'gemini', 'codex']);
-
-    readSourceFilesSpy.mockRestore();
-    readPatternsSpy.mockRestore();
-    transformCursorSpy.mockRestore();
-    transformClaudeCodeSpy.mockRestore();
-    transformGeminiSpy.mockRestore();
-    transformCodexSpy.mockRestore();
   });
 
   test('should include agents and kiro transformers', () => {

@@ -2,7 +2,7 @@
 
 /**
  * Dev-only prebuild: write the `_data/api/*.json` payloads into site/public/
- * so `bun run dev` (astro dev) serves them. In production these are generated
+ * so `npm run dev` (astro dev) serves them. In production these are generated
  * by scripts/build.js; the plain `astro dev` server never runs that build, so
  * without this step app.js 404s on /_data/api/commands.json and patterns.json.
  *

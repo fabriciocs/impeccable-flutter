@@ -34,6 +34,7 @@ Every interactive component has: default, hover, focus, active, disabled, loadin
 - Skeleton states for loading, not spinners in the middle of content. <!-- rule:product-components-skeleton-loading -->
 - Empty states that teach the interface, not "nothing here." <!-- rule:product-components-empty-states -->
 - Consistent affordances across the surface. Same button shape. Same form-control vocabulary. Same icon style. <!-- rule:product-components-consistent-affordances -->
+- In Flutter product UI, this vocabulary lives in Material widgets, component themes, `ThemeData`, `ColorScheme`, `TextTheme`, and shared widgets. Custom `GestureDetector` / `InkWell` controls still need semantics, focus behavior, feedback states, and 48 logical pixel touch targets.
 
 ## Motion
 

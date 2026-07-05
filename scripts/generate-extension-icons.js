@@ -6,10 +6,10 @@
  * Run: node scripts/generate-extension-icons.js
  */
 
-import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { launchLocalBrowser } from '../cli/engine/node/local-browser.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -19,7 +19,7 @@ const SIZES = [16, 32, 48, 128];
 
 const svgContent = fs.readFileSync(path.join(ICONS_DIR, 'icon.svg'), 'utf-8');
 
-const browser = await puppeteer.launch({ headless: true });
+const browser = await launchLocalBrowser({ headless: true });
 const page = await browser.newPage();
 
 for (const size of SIZES) {

@@ -762,10 +762,42 @@ function providerPromptOptions() {
   });
 }
 
-function formatPathForDisplay(path, home = homedir()) {
-  if (path === home) return '~';
-  if (path.startsWith(`${home}/`)) return `~/${path.slice(home.length + 1)}`;
-  return path;
+function displayCanonicalPath(value) {
+  const resolved = resolve(value);
+  try {
+    return realpathSync.native(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
+function sameDisplayPath(a, b) {
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
+
+function homeRelativePath(targetPath, home) {
+  const rel = relative(home, targetPath);
+  if (rel === '') return '';
+  if (rel && !rel.startsWith('..') && !isAbsolute(rel)) return rel;
+  return null;
+}
+
+function formatPathForDisplay(targetPath, home = homedir()) {
+  const rawRel = homeRelativePath(resolve(targetPath), resolve(home));
+  if (rawRel === '') return '~';
+  if (rawRel) return `~/${rawRel.split(sep).join('/')}`;
+
+  const canonicalTarget = displayCanonicalPath(targetPath);
+  const canonicalHome = displayCanonicalPath(home);
+  if (sameDisplayPath(canonicalTarget, canonicalHome)) return '~';
+
+  const canonicalRel = homeRelativePath(canonicalTarget, canonicalHome);
+  if (canonicalRel === '') return '~';
+  if (canonicalRel) {
+    return `~/${canonicalRel.split(sep).join('/')}`;
+  }
+
+  return targetPath;
 }
 
 function uniquePaths(paths) {

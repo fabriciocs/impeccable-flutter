@@ -27,6 +27,7 @@ import {
   pickElement,
   waitForHandshake,
 } from './live-e2e/ui.mjs';
+import { launchLiveBrowser } from './live-e2e/puppeteer-compat.mjs';
 
 loadEnvLocal();
 
@@ -34,12 +35,10 @@ const FIXTURE_NAME = 'vite8-react-plain';
 const PICK_SELECTOR = 'h1.hero-title';
 const EXPECTED_VARIANTS = 3;
 
-let playwright;
 let browser;
 
 before(async () => {
-  playwright = await import('playwright');
-  browser = await playwright.chromium.launch({ headless: true });
+  browser = await launchLiveBrowser({ headless: true });
 });
 
 after(async () => {

@@ -18,6 +18,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createWriteStream } from 'fs';
+import { ZipArchive } from 'archiver';
 import { ANTIPATTERNS } from '../cli/engine/registry/antipatterns.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -41,7 +43,7 @@ function browserSafeModule(relPath) {
     if (!match) throw new Error('Could not extract browser antipattern registry');
     code = match[0];
   }
-  code = code.replace(/^import[\s\S]*?;\n/gm, '');
+  code = code.replace(/^import[\s\S]*?;\r?\n/gm, '');
   code = code.replace(/^export\s+\{[\s\S]*?^};\n?/gm, '');
   return `// --- ${relPath} ---\n${code.trim()}\n`;
 }
@@ -83,27 +85,44 @@ console.log(`Generated ${path.relative(ROOT, AP_OUTPUT)} (${ANTIPATTERNS.length}
 
 // --- 3. Zip packaging ---
 
-import { execSync } from 'child_process';
-
 const DIST = path.join(ROOT, 'dist');
 fs.mkdirSync(DIST, { recursive: true });
 
-// `excludes` are passed to `zip -x`; patterns match the full archive path with
-// `*` spanning `/`, so `*.DS_Store` strips the file at every depth, not just root.
-function packZip(zipPath, cwd, excludes = []) {
+async function packZip(zipPath, cwd, excludes = []) {
   try { fs.unlinkSync(zipPath); } catch {}
-  const exArgs = excludes.map((e) => `-x ${JSON.stringify(e)}`).join(' ');
-  execSync(
-    `zip -r ${JSON.stringify(zipPath)} .${exArgs ? ' ' + exArgs : ''}`,
-    { cwd, stdio: 'pipe' },
-  );
+
+  let entryCount = 0;
+  await new Promise((resolve, reject) => {
+    const output = createWriteStream(zipPath);
+    const archive = new ZipArchive({ zlib: { level: 9 } });
+
+    output.on('close', resolve);
+    output.on('error', reject);
+    archive.on('error', reject);
+    archive.on('entry', () => { entryCount += 1; });
+
+    archive.pipe(output);
+    archive.glob('**/*', {
+      cwd,
+      dot: true,
+      ignore: excludes,
+    });
+    archive.finalize();
+  });
+
+  if (entryCount === 0) {
+    throw new Error(`Created ${zipPath} but it contains no entries.`);
+  }
   const size = fs.statSync(zipPath).size;
+  if (size === 0) {
+    throw new Error(`Created ${zipPath} but it is 0 bytes.`);
+  }
   console.log(`Packaged ${path.relative(ROOT, zipPath)} (${(size / 1024).toFixed(1)} KB)`);
 }
 
 // --- 3a. Chrome zip (manifest unchanged) ---
 
-packZip(path.join(DIST, 'extension.zip'), EXT_DIR, ['STORE_LISTING.md', '*.DS_Store']);
+await packZip(path.join(DIST, 'extension.zip'), EXT_DIR, ['STORE_LISTING.md', '**/.DS_Store']);
 
 // --- 3b. Firefox: derive a Gecko-compatible manifest and stage an unpacked
 // build (consumed by `web-ext lint` in CI), then zip it for AMO. ---
@@ -156,4 +175,4 @@ fs.writeFileSync(
 console.log(`Staged ${path.relative(ROOT, ffStageDir)}/ (Firefox manifest)`);
 
 // STORE_LISTING.md is already filtered out of the stage dir above.
-packZip(path.join(DIST, 'extension-firefox.zip'), ffStageDir, ['*.DS_Store']);
+await packZip(path.join(DIST, 'extension-firefox.zip'), ffStageDir, ['**/.DS_Store']);

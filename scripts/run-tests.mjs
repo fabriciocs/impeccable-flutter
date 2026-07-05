@@ -34,11 +34,6 @@ for (const suiteName of suites) {
 
 function runCommand(command) {
   const env = { ...process.env, ...(command.env || {}) };
-  if (command.runner === 'bun') {
-    runProcess('bun', ['test', ...command.files], { env });
-    return;
-  }
-
   if (command.runner === 'node') {
     for (const file of command.files) {
       const args = ['--test'];

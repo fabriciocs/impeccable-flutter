@@ -1,8 +1,9 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, test, expect } from './bun-test-shim.mjs';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { spawnSync } from 'child_process';
+import { fileURLToPath } from 'node:url';
 import {
   ANTIPATTERNS, checkElementBorders, checkElementMotion, checkElementGlow, isNeutralColor, isFullPage,
   detectText, detectHtml, extractStyleBlocks, extractCSSinJS,
@@ -15,9 +16,10 @@ import {
   isScreenReaderOnlyTextStyle,
 } from '../cli/engine/rules/checks.mjs';
 
-const FIXTURES = path.join(import.meta.dir, 'fixtures', 'antipatterns');
-const SCRIPT = path.join(import.meta.dir, '..', 'cli', 'engine', 'detect-antipatterns.mjs');
-const BENCH_SCRIPT = path.join(import.meta.dir, '..', 'scripts', 'benchmark-detector.mjs');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FIXTURES = path.join(__dirname, 'fixtures', 'antipatterns');
+const SCRIPT = path.join(__dirname, '..', 'cli', 'engine', 'detect-antipatterns.mjs');
+const BENCH_SCRIPT = path.join(__dirname, '..', 'scripts', 'benchmark-detector.mjs');
 
 function withoutDesignSystemArgs(args) {
   return args[0] === 'detect'
