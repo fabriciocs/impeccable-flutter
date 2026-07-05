@@ -74,3 +74,92 @@ Tags are per-component because the three components ship independently: `skill-v
 ## Contributor Notes
 
 Do not edit generated provider files directly unless you are intentionally patching generated output as part of a build-system change. Prefer fixing the root source in `skill/`, `scripts/`, or `cli/`, then regenerate artifacts for validation. Stage generated harness artifacts only for release/main-sync or build-system work.
+
+Nunca instalar, baixar, executar ou configurar nada relacionado a Playwright.
+
+Proibido:
+
+playwright
+@playwright/test
+playwright-core
+npx playwright
+playwright install
+browsers baixados pelo Playwright
+cache ms-playwright
+
+Alternativa padrão:
+
+Usar puppeteer-core com Chrome ou Edge já instalado no sistema.
+
+Regras:
+
+Não baixar browsers automaticamente.
+Usar puppeteer-core, não Playwright.
+Informar executablePath do Chrome ou Edge local.
+Configurar, quando necessário:
+$env:PUPPETEER_SKIP_DOWNLOAD="true"
+$env:PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
+npm install -D puppeteer-core
+
+Decisão padrão:
+
+Puppeteer Core + Chrome/Edge local é a alternativa oficial para automação web, screenshots, navegação e testes exploratórios.
+
+## Política de Execução Silenciosa e Logs Econômicos
+
+Durante a execução, opere em modo silencioso por padrão.
+
+### Regras obrigatórias
+
+1. Não narrar raciocínio, progresso interno, decisões triviais ou passos intermediários.
+2. Não imprimir logs completos de comandos bem-sucedidos.
+3. Não repetir conteúdo de arquivos, prompts, configurações, dependências ou saídas extensas, salvo quando solicitado diretamente.
+4. Para comandos bem-sucedidos, registrar somente:
+
+   * ação executada;
+   * status `OK`;
+   * arquivos criados/alterados;
+   * validação realizada, quando aplicável.
+5. Para comandos com erro, registrar:
+
+   * comando executado;
+   * código de saída;
+   * stderr relevante;
+   * trecho mínimo de stdout necessário para diagnosticar;
+   * causa provável;
+   * ação corretiva aplicada ou recomendada.
+6. Se a saída for muito longa, resumir e preservar somente as linhas relevantes para diagnóstico.
+7. Não incluir logs verbosos no contexto da IA, exceto quando forem necessários para depuração.
+8. Se o usuário solicitar explicitamente logs completos, relatórios detalhados ou modo verboso, obedecer à solicitação.
+
+### Formato padrão de saída
+
+Em caso de sucesso:
+
+```text
+OK: <ação concluída>
+Arquivos: <lista curta de arquivos relevantes>
+Validação: <resultado curto>
+```
+
+Em caso de erro:
+
+```text
+ERRO: <ação que falhou>
+Comando: <comando>
+Exit code: <código>
+Diagnóstico: <causa provável>
+Trecho relevante:
+<somente linhas essenciais do erro>
+Correção: <ação aplicada ou próxima ação recomendada>
+```
+
+### Execução de comandos
+
+Sempre que possível:
+
+* usar flags silenciosas como `--silent`, `--quiet`, `--no-progress` ou equivalentes;
+* redirecionar stdout de sucesso para arquivo temporário ou nulo;
+* preservar stderr;
+* salvar logs completos em arquivo local somente quando necessário;
+* enviar ao modelo apenas o resumo ou o erro relevante.
