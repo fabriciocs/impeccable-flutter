@@ -124,6 +124,8 @@ Present the brief, then **stop and wait for explicit confirmation**. You are not
 
 ### Brief Structure
 
+When the target is Flutter/Dart, keep the brief implementation-facing in Flutter terms. The brief must describe the Dart output shape: app or screen structure, `MaterialApp` / existing app shell integration, navigation entry points, `ThemeData` / `ColorScheme` / `TextTheme` roles, reusable widget boundaries, loading / empty / error / success states, responsive constraints, semantics, and i18n expectations when applicable. Do not drift into HTML/CSS as the primary output language for Flutter work.
+
 **1. Feature Summary** (2-3 sentences)
 What this is, who it's for, what it needs to accomplish.
 

@@ -58,6 +58,7 @@ export const SUITES = {
           'tests/context-signals.test.mjs',
           'tests/critique-storage.test.mjs',
           'tests/design-parser.test.mjs',
+          'tests/flutter-implementation-guidance.test.mjs',
           'tests/hook-build.test.mjs',
           'tests/hook.test.mjs',
           'tests/impeccable-paths.test.mjs',

@@ -26,6 +26,7 @@ Before shape, before code: figure out what kind of project you're working in.
 Look at the working directory. Run `ls`. Check for:
 
 - An existing framework: `astro.config.mjs/ts`, `next.config.js/ts`, `nuxt.config.ts`, `svelte.config.js`, `vite.config.js/ts`, `package.json` with framework deps, `Cargo.toml` + Leptos/Yew, `Gemfile` + Rails. **If found, use it.** Do not start a parallel build, do not introduce a second framework, do not write to `dist/` or `build/` directly. Whatever pipeline the project has, respect it.
+- A Flutter app: `pubspec.yaml`, `lib/main.dart`, shared widgets under `lib/`, theme files, router setup, and optional Flutter Web output under `web/`. **If found, build in Dart widgets, not HTML/CSS.** Read the app shell, theme, and at least one representative widget before deciding structure.
 - An existing component library or design system: `src/components/`, `app/components/`, a `tokens.css` / `theme.ts`, an `astro.config` `integrations`. Read what's there before adding to it.
 - An existing icon set: `lucide-react`, `@phosphor-icons/react`, `@iconify/*`, hand-rolled SVG sprites in `assets/icons/`. **Use what's already in the project**; don't introduce a second set.
 
@@ -79,6 +80,17 @@ Whether you generated mocks or not: don't replace required imagery with generic 
 **Precondition.** If Step 3 routed you to codex.md (native image generation available), Steps A through D in that file must be complete before any code: questions answered, palette confirmed, mocks generated, one direction approved or delegated. **Do not mention implementation, file paths, or patch plans until that's done.** A confirmed shape brief is not enough; the model that compressed those gates is the model that already failed this flow.
 
 Implement the feature following the design brief. Build in passes so structure, visual system, states, motion/media, and responsive behavior each get deliberate attention. The list below is the definition of done, not inspiration.
+
+For Flutter/Dart targets, the build path is source-first:
+
+- Write or modify Dart widgets rather than emitting HTML/CSS as the primary implementation.
+- Anchor app-level work in the existing `MaterialApp` / app shell, router, `ThemeData`, `ColorScheme`, `TextTheme`, and shared widgets.
+- Express navigation in the project's real routing model (`Navigator`, Router API, `go_router`, or equivalent), not as web-only link metaphors.
+- Model loading, empty, error, success, and first-run experiences as concrete widget states with real copy and recovery paths.
+- Use constraints, `LayoutBuilder`, `MediaQuery`, adaptive navigation, and flexible composition for responsiveness.
+- Keep semantics, focus, hit targets, and localization wired through the real widget tree.
+- Use Flutter Web/browser inspection only as rendered-output validation. It complements Dart source review and does not replace it.
+- Validate with `flutter analyze` and `flutter test` when the SDK and dependencies are available; if they are not, recommend them explicitly instead of pretending validation happened.
 
 ### Production bar
 

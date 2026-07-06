@@ -28,11 +28,13 @@ If init was invoked as a setup blocker by another command, such as `{{command_pr
 Before asking questions, thoroughly scan the project to discover what you can. This single crawl feeds PRODUCT.md, DESIGN.md, **and** the live-mode framework detection in Step 6, so be thorough once rather than re-scanning later:
 
 - **README and docs**: Project purpose, target audience, any stated goals
-- **Package.json / config files**: Tech stack, dependencies, existing design libraries, **and the framework** (Vite/SPA, Next.js, Nuxt, SvelteKit, Astro, multi-page static) plus the HTML entry the browser actually loads
+- **Package.json / config files**: Tech stack, dependencies, existing design libraries, **and the framework** (Vite/SPA, Next.js, Nuxt, SvelteKit, Astro, multi-page static, or Flutter) plus the HTML entry the browser actually loads when applicable
 - **Existing components**: Current design patterns, spacing, typography in use
 - **Brand assets**: Logos, favicons, color values already defined
 - **Design tokens / CSS variables**: Existing color palettes, font stacks, spacing scales
 - **Any style guides or brand documentation**
+
+For Flutter/Dart codebases, scan `pubspec.yaml`, `lib/main.dart`, theme files, router/navigation setup, shared widgets, localization files, and representative screens. Treat Flutter Web URLs or `web/index.html` as rendered-output evidence only; they do not replace reading `lib/**/*.dart`.
 
 Also form a **register hypothesis** from what you find:
 

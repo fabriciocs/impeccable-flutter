@@ -30,11 +30,14 @@ Produce ready-to-ship, production-grade code, not prototypes or starting points.
 #### Flutter/Dart targets
 
 - Recognize Flutter from `pubspec.yaml`, `lib/main.dart`, `web/index.html`, or Flutter Web signals such as `_flutter.loader`, `flutter.js`, and `main.dart.js`.
+- Treat Flutter as source-first. `pubspec.yaml` and `lib/**/*.dart` define the real implementation; a Flutter Web URL only validates rendered output and never replaces reading Dart source.
 - Do not translate web/CSS advice literally into Flutter. Work in widgets, constraints, `ThemeData`, `ColorScheme`, `TextTheme`, `Semantics`, focus, and stateful interaction patterns.
 - Prefer `Theme.of(context)`, semantic `ColorScheme` roles, `TextTheme` roles, `const` constructors, small named widgets, and shared component APIs over local one-off style objects.
+- When the task is to build or adapt Flutter UI, output Dart-first implementation plans and code: app structure, `MaterialApp` or the project's existing app shell, navigation (`Navigator`, Router API, or the project's router), `ThemeData`, `ColorScheme`, `TextTheme`, reusable widgets, and explicit loading / empty / error / success states.
 - Prefer Material 3 patterns when the project uses Material. Keep Material defaults unless the product need is concrete, and customize through theme roles before local overrides.
 - Use `LayoutBuilder`, `MediaQuery`, constraints, adaptive navigation, and deliberate `Flexible` / `Expanded` composition for responsiveness. Do not scale every pixel from a web layout.
 - Every custom interactive region needs an accessible path: `Semantics`, `Tooltip`, focus behavior, labels, keyboard activation where relevant, and enough hit area for touch.
+- Prefer project localization patterns (`gen_l10n`, `intl`, ARB files, or existing delegates) over embedded English strings whenever the surface is user-facing and the project already supports i18n, or when the task clearly calls for localization.
 - Validate Flutter work with `flutter analyze` and `flutter test` when the Flutter SDK and project dependencies are available. Add or update widget tests and golden tests only when the project already uses that testing style or the user asks for it.
 - Browser/live inspection applies to rendered Flutter Web output, not Dart source. Canvas-heavy Flutter Web can hide semantics from browser tools, so pair URL inspection with Dart source review whenever both are available.
 - Avoid `Container` as the universal answer, `BorderRadius.circular(32+)` on cards or panels, generic purple/cyan gradients, decorative `ShaderMask` text, gray text on colored surfaces, nested cards, identical padding at every level, and pretty UI with no semantic layer.
