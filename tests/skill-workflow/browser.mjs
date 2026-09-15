@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { sourceHash as hashSources } from './source-hash.mjs';
-import { chromium } from 'playwright';
+import { chromium } from '../lib/browser-driver.mjs';
 import { tool } from 'ai';
 import { z } from 'zod';
 

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { prepareBrowser, imageOutput } from './skill-workflow/browser.mjs';
-import { chromium } from 'playwright';
+import { chromium } from './lib/browser-driver.mjs';
 
 it('fails browser preflight with an actionable error before starting a workflow', async () => {
   const launch = mock.method(chromium, 'launch', async () => { throw new Error('browser missing'); });

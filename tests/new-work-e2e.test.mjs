@@ -4,7 +4,7 @@
  * Covers the parts a user actually touches: the serve-question decision page
  * (pick, re-roll + steer + re-deal, canon, tab close) driven through a real
  * browser by the scripted user bot, plus the offline fake image generator.
- * No LLM calls; a real Chromium via Playwright supplies full page fidelity
+ * No LLM calls; a real Chromium via puppeteer-core supplies full page fidelity
  * (heartbeats, re-roll reload, tab close). Kept OUT of `bun run test` like
  * live-e2e; run it with `bun run test:new-work-e2e`.
  *
@@ -40,10 +40,10 @@ let browser;
 before(async () => {
   if (!ENGINE_BIN) throw new Error(ENGINE_MISSING_MESSAGE);
   try {
-    playwright = await import('playwright');
+    playwright = await import('./lib/browser-driver.mjs');
   } catch (err) {
     throw new Error(
-      `Playwright is required for new-work-e2e tests (${err.message}). Run: npx playwright install chromium`,
+      `puppeteer-core is required for new-work-e2e tests (${err.message}). Run: npx playwright install chromium`,
     );
   }
   try {
@@ -920,7 +920,7 @@ describe('new-work-e2e: serve-question decision page', () => {
       let beats = 0;
       page.on('request', (r) => { if (new URL(r.url()).pathname === '/heartbeat') beats += 1; });
       await page.goto(url, { waitUntil: 'load' });
-      // Playwright actionability waits on rAF, which the fake clock owns, so
+      // puppeteer-core actionability waits on rAF, which the fake clock owns, so
       // dispatch the click directly.
       await page.$eval('#reroll', (el) => el.click());
       // The controls must go quiet at the click itself: the POST round-trip

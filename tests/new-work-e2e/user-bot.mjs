@@ -8,7 +8,7 @@
  * closes the tab for the exit-4 path. Because a real page runs the page's own
  * JS, heartbeats fire and re-roll reloads behave exactly as a user's would.
  *
- * The deterministic tier passes an already-launched Playwright browser in.
+ * The deterministic tier passes an already-launched puppeteer-core browser in.
  * Run as a CLI (`--workspace DIR --policy '<json>'`) it launches its own
  * Chromium. The policy is an ordered list of actions:
  *
@@ -123,13 +123,13 @@ async function runAction(page, action, { workspaceDir, key }) {
 
 /**
  * Drive the served question page through the policy. Pass a launched
- * Playwright `browser` (deterministic tier) or omit it to launch Chromium.
+ * puppeteer-core `browser` (deterministic tier) or omit it to launch Chromium.
  */
 export async function runUserBot({ workspaceDir, key = null, policy = [], browser = null }) {
   let ownBrowser = null;
   let pw = null;
   if (!browser) {
-    pw = await import('playwright');
+    pw = await import('../lib/browser-driver.mjs');
     ownBrowser = await pw.chromium.launch({ headless: true });
     browser = ownBrowser;
   }

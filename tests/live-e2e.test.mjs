@@ -5,7 +5,7 @@
  * runner exercises the entire user-visible chain:
  *
  *   1. Stage → install → start live-server + dev server → inject script tag
- *   2. Open Playwright Chromium, assert the live handshake fires
+ *   2. Open puppeteer-core Chromium, assert the live handshake fires
  *   3. Spawn a deterministic fake-agent polling loop in this same process
  *   4. Steer smoke: submit page-level chat → agent steer_done → bar unlocks
  *   5. Drive the bar UI: pick element → Go → wait CYCLING → cycle → Accept
@@ -177,10 +177,10 @@ before(async () => {
   // test, and a silent skip would read as coverage.
   if (!ENGINE_BIN) throw new Error(ENGINE_MISSING_MESSAGE);
   try {
-    playwright = await import('playwright');
+    playwright = await import('./lib/browser-driver.mjs');
   } catch (err) {
     throw new Error(
-      `Playwright is required for live-e2e tests (${err.message}). Run: npx playwright install chromium`,
+      `puppeteer-core is required for live-e2e tests (${err.message}). Run: npx playwright install chromium`,
     );
   }
   try {

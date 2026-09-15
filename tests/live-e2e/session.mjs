@@ -10,7 +10,7 @@
  *     boot from the repo root that resolves the app, starts the server, and
  *     injects
  *   - the fixture's framework dev server (vite, vite dev, npx vite, ...)
- *   - Playwright Chromium page
+ *   - puppeteer-core Chromium page
  *   - the fake-agent poll loop (in this same node process)
  *
  * Every verb runs through the engine binary resolved by tests/lib/engine-bin.mjs
@@ -294,7 +294,7 @@ export async function stopDevServer(child) {
  * @param {string} opts.name              fixture name
  * @param {object} opts.fixture           fixture.json contents
  * @param {string=} opts.fixtureRoot      fixture directory; defaults to the public framework fixture tree
- * @param {import('playwright').Browser} opts.browser   shared browser instance
+ * @param {import('../lib/browser-driver.mjs').Browser} opts.browser   shared browser instance
  * @param {object} opts.agent             VariantAgent (defaults to fake)
  * @param {object|function=} opts.wrapTarget live-wrap target or event mapper
  * @param {(context: object) => Promise<object|void>} [opts.startWorker]
