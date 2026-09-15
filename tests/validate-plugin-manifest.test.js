@@ -12,12 +12,13 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import {
   collectPluginManifestFindings,
   KNOWN_LOADER_KEYS,
 } from '../scripts/lib/validate-plugin-manifest.js';
 
-const REPO_ROOT = path.resolve(import.meta.dir, '..');
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const GOOD_MANIFEST = {
   name: 'impeccable',

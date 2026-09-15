@@ -17,6 +17,7 @@ import {
 } from './lib/live-server-processes.mjs';
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const NODE_TEST_COMPAT_REGISTER = path.join(REPO_ROOT, 'tests', 'register-node-test-compat.mjs');
 
 // Global wall-clock backstop for any one command. Even with per-test timeouts
 // and client-side network deadlines in place, a wedged tool or an orphaned
@@ -98,24 +99,31 @@ async function runCommand(command, suiteName) {
   const wallClockMs = command.wallClockMs ?? DEFAULT_WALL_CLOCK_MS;
 
   if (command.runner === 'bun') {
-    await runProcess('bun', ['test', ...command.files], { env, wallClockMs });
+    // `test-suites.mjs` still carries the historical label while the catalog is
+    // migrated. Operationally these files now run entirely under node:test;
+    // the loader only maps their remaining `bun:test` imports to the local
+    // compatibility layer. No Bun process is started here.
+    await runNodeTests(command.files, command, { env, wallClockMs, compat: true });
   } else if (command.runner === 'node') {
-    // One invocation for the whole file list: node --test runs each file in
-    // its own child process regardless, so isolation is unchanged, but the
-    // runner-per-file spawn overhead is gone and files execute concurrently.
-    // Measured on the live suite (38 files): 52s serial-per-file vs 18s
-    // batched at concurrency 4. Suites can pin `concurrency: 1` if their
-    // tests ever contend for a shared resource.
-    const nodeArgs = ['--test', `--test-concurrency=${command.concurrency ?? 4}`];
-    if (command.timeoutMs) nodeArgs.push(`--test-timeout=${command.timeoutMs}`);
-    if (command.forceExit) nodeArgs.push('--test-force-exit');
-    nodeArgs.push(...command.files);
-    await runProcess(process.execPath, nodeArgs, { env, wallClockMs });
+    await runNodeTests(command.files, command, { env, wallClockMs, compat: false });
   } else {
     throw new Error(`Unsupported test runner "${command.runner}"`);
   }
 
   await assertNoLeakedServers(runId, suiteName);
+}
+
+async function runNodeTests(files, command, { env, wallClockMs, compat }) {
+  // One invocation for the whole file list: node --test runs each file in its
+  // own child process regardless, so isolation is unchanged, but the
+  // runner-per-file spawn overhead is gone and files execute concurrently.
+  const nodeArgs = [];
+  if (compat) nodeArgs.push(`--import=${NODE_TEST_COMPAT_REGISTER}`);
+  nodeArgs.push('--test', `--test-concurrency=${command.concurrency ?? 4}`);
+  if (command.timeoutMs) nodeArgs.push(`--test-timeout=${command.timeoutMs}`);
+  if (command.forceExit) nodeArgs.push('--test-force-exit');
+  nodeArgs.push(...files);
+  await runProcess(process.execPath, nodeArgs, { env, wallClockMs });
 }
 
 function runProcess(cmd, args, { env, wallClockMs }) {
@@ -144,9 +152,6 @@ function runProcess(cmd, args, { env, wallClockMs }) {
             `\n[run-tests] wall-clock cap of ${wallClockMs}ms exceeded for "${formatCommand(cmd, args)}"; ` +
             'killing the process group (SIGKILL).',
           );
-          // A test blocked in a synchronous spawnSync cannot be reached by
-          // node's --test-timeout, so this is the guaranteed end of the tree.
-          // No graceful phase: the cap has already been generous.
           try { process.kill(-running.child.pid, 'SIGKILL'); }
           catch { try { running.child.kill('SIGKILL'); } catch { /* already gone */ } }
         }, wallClockMs)
@@ -163,8 +168,6 @@ function runProcess(cmd, args, { env, wallClockMs }) {
       shutdown.release();
       if (shutdown.shuttingDown) return;
       if (timedOut) {
-        // A wedged suite is one of the ways servers are left behind, so sweep
-        // before reporting rather than walking away from them.
         assertNoLeakedServers(env[RUN_ID_ENV], null).finally(() => process.exit(1));
         return;
       }
@@ -174,8 +177,6 @@ function runProcess(cmd, args, { env, wallClockMs }) {
         return;
       }
       if (code !== 0) {
-        // Leaked servers are still worth reporting on a failing suite: a
-        // failure before teardown is one of the ways they are left behind.
         assertNoLeakedServers(env[RUN_ID_ENV], null).finally(() => process.exit(code || 1));
         return;
       }
@@ -184,17 +185,8 @@ function runProcess(cmd, args, { env, wallClockMs }) {
   });
 }
 
-/**
- * Fail the run when a suite left live servers behind.
- *
- * The whole point of the guard is that a leak shows up in the run that caused
- * it rather than as a wedged port days later, so it is an error, not a warning.
- * The leaked servers are killed either way, so the next suite still gets its
- * ports.
- */
 async function assertNoLeakedServers(runId, suiteName) {
   if (!runId || process.env.IMPECCABLE_SKIP_LEAK_CHECK === '1') return;
-  // A server asked to stop needs a moment to actually go.
   let leaked = [];
   for (let attempt = 0; attempt < 10; attempt += 1) {
     leaked = findLiveServers({ runId });
@@ -212,14 +204,6 @@ async function assertNoLeakedServers(runId, suiteName) {
   process.exit(1);
 }
 
-/**
- * `bun run test:cleanup`: kill live servers this checkout's tests left behind.
- *
- * Scoped to servers carrying this checkout's `IMPECCABLE_TEST_REPO` marker, so
- * a live session the developer started themselves in this same repo is not a
- * candidate. A server from a run that predates the marker is not found here and
- * has to be killed by hand.
- */
 function cleanupRepoServers() {
   const leaked = findLiveServers({ repo: REPO_ROOT });
   if (!leaked.length) {
@@ -260,7 +244,8 @@ function printSuites() {
     console.log(`\n${name}${marker}`);
     console.log(`  ${suite.description}`);
     for (const command of suite.commands) {
-      console.log(`  ${command.runner}:`);
+      const effectiveRunner = command.runner === 'bun' ? 'node-compat' : command.runner;
+      console.log(`  ${effectiveRunner}:`);
       for (const file of command.files) console.log(`    ${file}`);
     }
   }
