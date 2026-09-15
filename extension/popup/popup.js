@@ -9,6 +9,7 @@ const countLabel = document.getElementById('count-label');
 const btnScan = document.getElementById('btn-scan');
 const btnToggle = document.getElementById('btn-toggle');
 const scanError = document.getElementById('scan-error');
+const flutterHint = document.getElementById('flutter-hint');
 
 let overlaysVisible = true;
 // The popup only ever reflects the active tab. Broadcasts from the service
@@ -31,11 +32,34 @@ function updateFromState(state) {
   btnToggle.textContent = overlaysVisible ? 'Hide overlays' : 'Show overlays';
 }
 
+async function updateFlutterHint(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const hasFlutterRoot = Boolean(
+          document.querySelector('flt-glass-pane, flutter-view, flt-scene-host'),
+        );
+        const hasFlutterScript = Array.from(document.scripts).some((script) =>
+          /(?:flutter(?:_bootstrap)?\.js|main\.dart\.js)(?:[?#]|$)/i.test(script.src || ''),
+        );
+        return Boolean(window._flutter || hasFlutterRoot || hasFlutterScript);
+      },
+    });
+    flutterHint.hidden = results?.[0]?.result !== true;
+  } catch {
+    // Browser-internal pages and other restricted tabs cannot be scripted.
+    // The normal scan path handles those errors; this hint is best-effort.
+    flutterHint.hidden = true;
+  }
+}
+
 async function loadState() {
   const tabId = await getActiveTabId();
   if (!tabId) return;
   activeTabId = tabId;
   chrome.runtime.sendMessage({ action: 'get-state', tabId }, updateFromState);
+  await updateFlutterHint(tabId);
 }
 
 // Listen for real-time updates from service worker

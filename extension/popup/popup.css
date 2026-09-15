@@ -137,6 +137,28 @@ h1 {
   box-shadow: var(--ks-cap-press);
 }
 
+/* Flutter Web is browser evidence only; point source analysis at Dart. */
+
+.flutter-hint {
+  margin: -6px 0 14px;
+  padding: 8px 9px;
+  border: 1px solid var(--ks-rule);
+  border-radius: var(--ks-radius-sm);
+  background: var(--ks-paper-raised);
+  font-size: var(--ks-type-micro);
+  line-height: 1.45;
+  color: var(--ks-text-muted);
+}
+
+.flutter-hint code {
+  font-size: inherit;
+  color: var(--ks-ink);
+}
+
+.flutter-hint[hidden] {
+  display: none;
+}
+
 /* A scan that did not run. The one vermilion in the extension. */
 
 .scan-error {

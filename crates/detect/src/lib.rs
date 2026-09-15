@@ -13,8 +13,11 @@
 pub mod cli;
 pub mod config;
 pub mod design_system;
+pub mod detect_dart;
+#[path = "detect_text_flutter.rs"]
 pub mod detect_text;
 pub mod engines;
+#[path = "file_system_flutter.rs"]
 pub mod file_system;
 pub mod ignores;
 pub mod jsp;
