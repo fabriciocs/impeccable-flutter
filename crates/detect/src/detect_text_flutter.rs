@@ -7,7 +7,7 @@
 #[path = "detect_text.rs"]
 mod upstream;
 
-pub use upstream::TextOptions;
+pub use upstream::{ext_from_file_path, run_text_content_analyzers, TextOptions};
 
 use impeccable_core::findings::Finding;
 use impeccable_core::inline_ignores::apply_inline_ignores;
