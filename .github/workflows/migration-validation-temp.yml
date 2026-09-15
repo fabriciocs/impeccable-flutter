@@ -1,4 +1,5 @@
 name: Migration Validation Temp
+# Rerun after removing the final retired bunx command form.
 
 on:
   push:
