@@ -1,0 +1,41 @@
+name: Fix Last Bunx Temp
+
+on:
+  push:
+    branches: [chore/node-npm-puppeteer-migration-20260915]
+    paths:
+      - '.github/workflows/fix-last-bunx-temp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: chore/node-npm-puppeteer-migration-20260915
+          fetch-depth: 0
+          token: ${{ github.token }}
+      - name: Remove retired bunx command form
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/skill-behavior/scenarios.test.mjs')
+          text = path.read_text()
+          old = r'(?:npx|bunx|pnpx)'
+          new = r'(?:npx|pnpx)'
+          if old not in text:
+              raise SystemExit('expected bunx alternation not found')
+          path.write_text(text.replace(old, new))
+          PY
+      - name: Commit fix
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/skill-behavior/scenarios.test.mjs
+          git commit -m 'test: remove retired bunx update command form'
+          git push origin HEAD:chore/node-npm-puppeteer-migration-20260915
