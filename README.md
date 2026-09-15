@@ -1,6 +1,6 @@
 # Impeccable
 
-Design guidance for AI coding agents. 1 skill, 24 commands, live browser iteration, and 61 deterministic detector rules for AI-generated frontend design.
+Design guidance for AI coding agents. 1 skill, 24 commands, live browser iteration, and 61 deterministic detector rules for AI-generated frontend and Flutter/Dart design.
 
 > **Quick start:** From your project root, run `npx impeccable install`, then run `/impeccable init` inside your AI coding tool. Full docs: [impeccable.style](https://impeccable.style).
 
@@ -13,7 +13,7 @@ Every model trained on the same SaaS templates. Skip the guidance and you get th
 Impeccable adds:
 - **One setup flow.** `/impeccable init` records durable product truth in `PRODUCT.md`, so later commands know the audience, purpose, operating context, constraints, voice, and evidence without confusing those facts with surface-level visual direction.
 - **24 commands.** A shared design vocabulary with your AI: `polish`, `audit`, `critique`, `distill`, `animate`, `bolder`, `quieter`, and more.
-- **61 deterministic detector rules** plus LLM-only critique checks. The CLI and browser extension run the deterministic rules with no LLM and no API key.
+- **61 deterministic detector rules** plus LLM-only critique checks. The CLI and browser extension run the deterministic rules with no LLM and no API key, including source-level Flutter/Dart checks.
 
 ## What's Included
 
@@ -351,6 +351,27 @@ If you reach for one command often, pin it with `/impeccable pin audit` to get `
 
 **Note:** Codex uses skills here, not `/prompts:` commands. Open `/skills` or type `$impeccable`. Repo-local installs live in `.agents/skills/`; user-wide installs live in `~/.agents/skills/`. GitHub Copilot uses `.github/skills/`. Restart the tool if a newly installed skill does not appear.
 
+### Flutter and Dart
+
+Flutter/Dart is supported as a first-class source target. Impeccable identifies Flutter from the SDK declaration in `pubspec.yaml`; Android/iOS/adaptive remain platform values rather than substitutes for the Flutter technology signal. Dart workspaces and Melos packages resolve the selected package separately from the workspace root.
+
+Scan Flutter source directly:
+
+```bash
+npx impeccable detect lib/
+npx impeccable detect lib/main.dart
+npx impeccable detect --json lib/
+```
+
+Native/mobile/desktop Flutter does **not** need a web server for source analysis. `.dart` files are scanned directly, while generated `.dart_tool/` and `build/` output is excluded from ordinary directory traversal.
+
+Flutter Web has two independent evidence channels:
+
+- source scan (`lib/` or specific `.dart` files), which understands the Dart/Flutter anti-pattern rules;
+- rendered browser inspection, which evaluates the actual Web output when a real URL is available.
+
+Rendered inspection never replaces Dart source analysis and Impeccable does not invent a Flutter Web localhost port. If Flutter Web starts on an ephemeral or explicitly configured URL, pass that real URL separately.
+
 ## Keeping `.impeccable` out of git
 
 As you run commands, Impeccable writes working files under `.impeccable/`: critique and polish screenshots, live-mode session and preview state, runtime caches, and per-developer config. Most of it is ephemeral and should not be committed, while a few files are shared project artifacts that belong in the repo. Add this block to your project's `.gitignore`:
@@ -455,8 +476,10 @@ Impeccable includes a standalone CLI for detecting anti-patterns without an AI h
 
 ```bash
 npx impeccable detect src/                   # scan a directory
+npx impeccable detect lib/                   # scan Flutter/Dart source
+npx impeccable detect lib/main.dart          # scan one Dart file
 npx impeccable detect index.html             # scan an HTML file
-npx impeccable detect https://example.com    # scan a URL (uses an installed Chrome, Chromium, or Edge)
+npx impeccable detect https://example.com    # scan a rendered URL (uses an installed Chrome, Chromium, or Edge)
 npx impeccable detect --json .               # CI-friendly JSON output
 npx impeccable detect --no-config src/       # raw scan, ignoring project config/context
 npx impeccable ignores list                  # show detector ignores
@@ -464,9 +487,9 @@ npx impeccable ignores add-file "src/legacy/**"
 npx impeccable ignores add-value overused-font Inter --reason "Brand font"
 ```
 
-The detector catches 61 deterministic issues across AI slop (side-tab borders, purple gradients, bounce easing, dark glows) and general design quality (line length, cramped padding, small touch targets, skipped headings, and more).
+The detector catches 61 deterministic issues across AI slop (side-tab borders, purple gradients, bounce easing, dark glows) and general design quality (line length, cramped padding, small touch targets, skipped headings, Flutter source anti-patterns, and more).
 
-Human-readable findings are diagnostics written to stderr, so redirect them with `2> findings.txt`. Use `--json` for machine-readable results on stdout. Exit `0` means the scan completed without primary findings, exit `2` means it completed with primary findings, and exit `1` means at least one requested target could not be scanned; operational failure takes precedence for a partial multi-target scan. URL scans inspect the rendered DOM, computed layout, and accessible linked stylesheets; browser security still prevents reading cross-origin CSS without CORS. A clean detector run is evidence, not proof of visual or accessibility quality: it does not replace inspecting the rendered experience across relevant viewports.
+Human-readable findings are diagnostics written to stderr, so redirect them with `2> findings.txt`. Use `--json` for machine-readable results on stdout. Exit `0` means the scan completed without primary findings, exit `2` means it completed with primary findings, and exit `1` means at least one requested target could not be scanned; operational failure takes precedence for a partial multi-target scan. URL scans inspect the rendered DOM, computed layout, and accessible linked stylesheets; browser security still prevents reading cross-origin CSS without CORS. A clean detector run is evidence, not proof of visual or accessibility quality: it does not replace inspecting the rendered experience across relevant viewports. Dart source scans are independent of browser rendering and remain available for native Flutter apps with no Web server.
 
 By default, `detect` respects the same `.impeccable/config.json` and `.impeccable/config.local.json` detector config as the design hook: `detector.ignoreRules`, `detector.ignoreFiles`, `detector.ignoreValues`, and `detector.designSystem.enabled`. Hook lifecycle settings such as `hook.enabled` only affect automatic hook execution.
 
