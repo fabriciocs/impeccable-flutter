@@ -1,0 +1,137 @@
+name: Migration Validation Temp
+
+on:
+  push:
+    branches: [chore/node-npm-puppeteer-migration-20260915]
+    paths:
+      - '.github/workflows/migration-validation-temp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-matrix:
+    name: node-${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22.18.0, 24]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test:core
+      - run: npm run test:detector
+      - run: npm run test:live
+      - run: npm run test:framework
+      - run: npm run build
+      - run: npm run package:vscode
+      - run: rustup show && rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - run: cargo install wasm-pack --locked
+      - run: npm run build:extension
+      - run: npx --yes web-ext@10 lint --source-dir dist/extension-firefox
+      - run: git diff --exit-code -- crates/live/assets/antipatterns.json
+      - run: git diff --exit-code -- .agents .claude .cursor .dsh .gemini .github/skills plugin extension/detector
+
+  rust-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: rustup show
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - run: cargo build --workspace --all-targets
+      - run: cargo test --workspace
+
+  rust-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: rustup show
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - run: cargo build --workspace --all-targets
+      - run: cargo test --workspace --no-fail-fast
+
+  launcher-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      - run: node --test tests/launcher-download.test.mjs
+
+  oracle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: rustup show
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - run: cargo build --release -p impeccable
+      - name: Replay oracle goldens
+        env:
+          IMPECCABLE_BIN: ${{ github.workspace }}/target/release/impeccable
+        run: node tests/oracle/run.mjs
+
+  engine-release-ready:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      - run: node scripts/check-engine-release.mjs
+
+  live-e2e-smoke:
+    name: live-e2e-${{ matrix.group }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: platform
+            fixtures: astro-vite7,monorepo-nested-vite,nextjs-app-router,vite8-sveltekit
+          - group: svelte
+            fixtures: vite8-sveltekit-stateful
+          - group: react
+            fixtures: vite8-react-css-modules,vite8-react-insert,vite8-react-plain,vite8-react-pricing-cards
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Resolve host browser
+        run: |
+          for bin in google-chrome google-chrome-stable chromium chromium-browser microsoft-edge-stable; do
+            if command -v "$bin" >/dev/null 2>&1; then
+              echo "PUPPETEER_EXECUTABLE_PATH=$(command -v "$bin")" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          done
+          echo 'No Chrome/Chromium/Edge executable found on runner' >&2
+          exit 1
+      - run: rustup show
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - run: cargo build --release -p impeccable
+      - name: Run live E2E tests
+        env:
+          IMPECCABLE_E2E_ONLY: ${{ matrix.fixtures }}
+          IMPECCABLE_E2E_SCENARIOS: core,agent-target
+          IMPECCABLE_E2E_TEST_TIMEOUT_MS: 180000
+          IMPECCABLE_E2E_INSTALL_TIMEOUT_MS: 120000
+          IMPECCABLE_E2E_DEV_READY_TIMEOUT_MS: 60000
+          IMPECCABLE_E2E_ARTIFACT_DIR: test-results/live-e2e/${{ matrix.group }}
+        run: npm run test:live-e2e
