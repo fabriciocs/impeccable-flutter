@@ -6,6 +6,7 @@
 //! `io.stdout` / `io.stderr`, reads `io.stdin()` lazily, and returns the exit
 //! code. Only the `cli` binary calls `std::process::exit`.
 
+pub mod flutter;
 pub mod jsp;
 pub mod proc;
 
