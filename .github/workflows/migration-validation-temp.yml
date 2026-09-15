@@ -1,5 +1,5 @@
 name: Migration Validation Temp
-# Rerun after removing the final retired package-runner command form.
+# Rerun after the shadow-DOM browser driver compatibility fix.
 
 on:
   push:
