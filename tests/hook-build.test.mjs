@@ -250,13 +250,13 @@ describe('hook manifest builders', () => {
 });
 
 // The tracked provider outputs are regenerated on main by the sync workflow
-// (`bun run build:release`), never in a feature PR. Until that sync lands after
+// (`npm run build:release`), never in a feature PR. Until that sync lands after
 // the launcher swap, the tracked manifests still describe the Node scripts;
 // gate these assertions on the synced launcher so a source-first branch is
 // not red for output it is not allowed to stage.
 const SYNCED = fs.existsSync(path.join(REPO_ROOT, '.claude/skills/impeccable/scripts/impeccable'));
 
-describe('generated hook artifacts in repo', { skip: SYNCED ? false : 'generated provider output not yet synced (bun run build:release on main)' }, () => {
+describe('generated hook artifacts in repo', { skip: SYNCED ? false : 'generated provider output not yet synced (npm run build:release on main)' }, () => {
   for (const rel of [
     '.claude/settings.json',
     '.cursor/hooks.json',
@@ -265,7 +265,7 @@ describe('generated hook artifacts in repo', { skip: SYNCED ? false : 'generated
   ]) {
     it(`${rel} exists and is valid JSON`, () => {
       const abs = path.join(REPO_ROOT, rel);
-      assert.ok(fs.existsSync(abs), `${rel} missing - did you forget bun run build?`);
+      assert.ok(fs.existsSync(abs), `${rel} missing - did you forget npm run build?`);
       assert.doesNotThrow(() => JSON.parse(fs.readFileSync(abs, 'utf8')));
     });
   }
@@ -308,7 +308,7 @@ describe('generated hook artifacts in repo', { skip: SYNCED ? false : 'generated
     assert.ok(!handler.command.includes('.agents/skills'));
 
     // The self-consistent Codex bundle at `dist/codex/.codex/skills/` is a build
-    // artifact, not a tracked repo file; `bun run build` emits it and
+    // artifact, not a tracked repo file; `npm run build` emits it and
     // build.test.js verifies it there. This suite runs before the build (CI's
     // `test:core` precedes the Build step), so it asserts only tracked outputs.
 
@@ -350,7 +350,7 @@ describe('generated hook artifacts in repo', { skip: SYNCED ? false : 'generated
 
   it('packages the Claude design hook in the plugin via plugin-root paths', () => {
     const abs = path.join(REPO_ROOT, 'plugin/hooks/hooks.json');
-    assert.ok(fs.existsSync(abs), 'plugin/hooks/hooks.json missing - did you forget bun run build:release?');
+    assert.ok(fs.existsSync(abs), 'plugin/hooks/hooks.json missing - did you forget npm run build:release?');
 
     const manifest = readJson('plugin/hooks/hooks.json');
     assert.deepEqual(manifest, buildClaudePluginHooksManifest());

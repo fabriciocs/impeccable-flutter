@@ -5,8 +5,8 @@
  * (pick, re-roll + steer + re-deal, canon, tab close) driven through a real
  * browser by the scripted user bot, plus the offline fake image generator.
  * No LLM calls; a real Chromium via puppeteer-core supplies full page fidelity
- * (heartbeats, re-roll reload, tab close). Kept OUT of `bun run test` like
- * live-e2e; run it with `bun run test:new-work-e2e`.
+ * (heartbeats, re-roll reload, tab close). Kept OUT of `npm run test` like
+ * live-e2e; run it with `npm run test:new-work-e2e`.
  *
  * The concept-seed direction roll (challengers, ASSIGNED INDEX, the no
  * PRODUCT.md gate) is pinned by the oracle corpus (tests/oracle, `seed-*`
@@ -16,7 +16,7 @@
  * binary from tests/lib/engine-bin.mjs (IMPECCABLE_BIN or
  * skill/scripts/bin/<os>-<arch>/); the suite fails loudly without one.
  *
- * One-time setup:  npx playwright install chromium
+ * One-time setup:  set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge browser when auto-discovery is unavailable
  */
 
 import { describe, it, before, after } from 'node:test';
@@ -43,13 +43,13 @@ before(async () => {
     playwright = await import('./lib/browser-driver.mjs');
   } catch (err) {
     throw new Error(
-      `puppeteer-core is required for new-work-e2e tests (${err.message}). Run: npx playwright install chromium`,
+      `puppeteer-core is required for new-work-e2e tests (${err.message}). Run: set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge browser when auto-discovery is unavailable`,
     );
   }
   try {
     browser = await playwright.chromium.launch({ headless: true });
   } catch (err) {
-    throw new Error(`Failed to launch Chromium (${err.message}). Run: npx playwright install chromium`);
+    throw new Error(`Failed to launch Chromium (${err.message}). Run: set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge browser when auto-discovery is unavailable`);
   }
 });
 

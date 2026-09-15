@@ -4,7 +4,7 @@
  * deltas in tests/oracle/DELTAS.md.
  *
  * Skips cleanly when no binary is available: set IMPECCABLE_BIN or run
- * `bun run fetch:engine` (which writes skill/scripts/bin/<os>-<arch>/).
+ * `npm run fetch:engine` (which writes skill/scripts/bin/<os>-<arch>/).
  *
  * Run with: node --test tests/oracle.test.mjs
  * Scope:    IMPECCABLE_ORACLE_PREFIX=detect- node --test tests/oracle.test.mjs

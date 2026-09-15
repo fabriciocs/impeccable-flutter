@@ -5,9 +5,9 @@
  *
  * Step 3 of the engine cutover, as one command:
  *
- *   bun run release:platform-packages            # publish every target not yet on npm
- *   bun run release:platform-packages -- --dry-run
- *   bun run release:platform-packages -- --target linux-x64
+ *   npm run release:platform-packages            # publish every target not yet on npm
+ *   npm run release:platform-packages -- --dry-run
+ *   npm run release:platform-packages -- --target linux-x64
  *
  * For each target it downloads the release binary and its .sha256 sidecar
  * (the sidecar is required here: nothing unverified is ever published),
@@ -92,7 +92,7 @@ export async function fetchVerifiedBinary(target, version, base) {
   try {
     binary = await download(url);
   } catch (err) {
-    throw new Error(`release asset not available: ${err.message}. Publish engine-v${version} first (bun run release:engine) and wait for release-engine.yml to finish.`);
+    throw new Error(`release asset not available: ${err.message}. Publish engine-v${version} first (npm run release:engine) and wait for release-engine.yml to finish.`);
   }
   let sidecar;
   try {
@@ -203,7 +203,7 @@ export async function main(argv = process.argv.slice(2)) {
   console.log('');
   for (const r of results) console.log(`✓ ${packageName(r.target)}@${version}: ${r.status}`);
   if (!opts.dryRun) {
-    console.log('\n→ Next: `bun run check:engine-release` should now be fully green; then the clean-HOME launcher check, then merge.');
+    console.log('\n→ Next: `npm run check:engine-release` should now be fully green; then the clean-HOME launcher check, then merge.');
   }
 }
 

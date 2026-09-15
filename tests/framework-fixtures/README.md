@@ -1,6 +1,6 @@
 # Framework fixtures
 
-Representative project shapes for exercising live mode against different framework conventions. Each fixture is a small directory tree that the test harness copies into a temp git repo, then drives the engine binary's `live-inject`, `live-wrap`, `live-accept`, and `detect-csp` verbs against (via `tests/lib/engine-bin.mjs`: `IMPECCABLE_BIN` or `skill/scripts/bin/<os>-<arch>/`, filled by `bun run fetch:engine`; the sweeps skip without a binary).
+Representative project shapes for exercising live mode against different framework conventions. Each fixture is a small directory tree that the test harness copies into a temp git repo, then drives the engine binary's `live-inject`, `live-wrap`, `live-accept`, and `detect-csp` verbs against (via `tests/lib/engine-bin.mjs`: `IMPECCABLE_BIN` or `skill/scripts/bin/<os>-<arch>/`, filled by `npm run fetch:engine`; the sweeps skip without a binary).
 
 Fixtures can also opt into a **runtime E2E** pass that actually installs dependencies, boots the framework dev server, and drives a Playwright browser to verify the live handshake. See the `runtime` block below.
 
@@ -99,7 +99,7 @@ The legacy `middleware` shape name covers CSP set in either Next.js
 
 The `expectedAfter` file lives alongside `fixture.json` (not inside `files/`) and is a human/agent-review reference — tests don't auto-apply the patch.
 
-The `runtime` block is optional. Fixtures without it only run the static checks in `tests/framework-fixtures.test.mjs` (inject, wrap, csp-detect). Fixtures *with* it additionally run the E2E suite in `tests/live-e2e.test.mjs` (`bun run test:live-e2e`), which:
+The `runtime` block is optional. Fixtures without it only run the static checks in `tests/framework-fixtures.test.mjs` (inject, wrap, csp-detect). Fixtures *with* it additionally run the E2E suite in `tests/live-e2e.test.mjs` (`npm run test:live-e2e`), which:
 
 1. Stages the fixture into a tmp repo.
 2. Runs `runtime.install` to install real deps.

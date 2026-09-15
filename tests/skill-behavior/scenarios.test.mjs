@@ -6,7 +6,7 @@
  * assertions green. If you change Setup intentionally and the assertions
  * flip, that's the test catching the regression you wanted to catch.
  *
- * Run with:  bun run test:skill-behavior
+ * Run with:  npm run test:skill-behavior
  *
  * Skips per-provider when its API key is unset. The default model lineup is
  * the cheapest tier of each major provider so a full sweep costs a few cents.

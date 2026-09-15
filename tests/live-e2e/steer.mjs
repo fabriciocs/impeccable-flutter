@@ -22,7 +22,7 @@ export function resolveSteerSourceFile(tmp, fixture) {
 }
 
 /**
- * @param {import('playwright').Page} page
+ * @param {import('puppeteer-core').Page} page
  * @param {string} tmp
  * @param {object} fixture
  * @param {(msg: string) => void} [log]

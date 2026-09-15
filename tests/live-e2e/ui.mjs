@@ -1232,7 +1232,7 @@ export async function waitForBarHidden(page, { timeout = 10_000 } = {}) {
 
 /**
  * Dismiss dev-tool overlays that intercept clicks on the live bar (Astro, etc.).
- * @param {import('playwright').Page} page
+ * @param {import('puppeteer-core').Page} page
  */
 export async function preparePageForBarInteraction(page) {
   await page.evaluate(() => {

@@ -111,7 +111,7 @@ function report(result) {
     console.error(`      ${m.url}`);
   }
   console.error('');
-  console.error(`Publish engine v${version} (tag engine-v${version}, bun run release:engine) AND the`);
+  console.error(`Publish engine v${version} (tag engine-v${version}, npm run release:engine) AND the`);
   console.error('five @impeccable/cli-<os>-<arch> npm platform packages BEFORE releasing the');
   console.error('skill or merging rust-swap. Ordering: engine release → platform packages →');
   console.error('skill release/merge. See CLAUDE.md "Releases" and docs REVIEW-TRIAGE.md D4.');

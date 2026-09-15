@@ -16,7 +16,7 @@
  * The fake and LLM agents share one interface — see tests/live-e2e/agent.mjs
  * and tests/live-e2e/agents/llm-agent.mjs.
  *
- * Run with:  bun run test:live-e2e
+ * Run with:  npm run test:live-e2e
  */
 
 import { describe, it, before, after } from 'node:test';
@@ -180,13 +180,13 @@ before(async () => {
     playwright = await import('./lib/browser-driver.mjs');
   } catch (err) {
     throw new Error(
-      `puppeteer-core is required for live-e2e tests (${err.message}). Run: npx playwright install chromium`,
+      `puppeteer-core is required for live-e2e tests (${err.message}). Run: set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge browser when auto-discovery is unavailable`,
     );
   }
   try {
     browser = await launchLiveE2eBrowser();
   } catch (err) {
-    throw new Error(`Failed to launch Chromium (${err.message}). Run: npx playwright install chromium`);
+    throw new Error(`Failed to launch Chromium (${err.message}). Run: set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge browser when auto-discovery is unavailable`);
   }
 });
 

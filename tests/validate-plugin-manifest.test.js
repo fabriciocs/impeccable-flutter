@@ -188,7 +188,7 @@ describe('committed plugin subtree', () => {
   // The test that was missing when the agents key shipped: validate the real
   // artifact the marketplace installs, not a fixture. If this fails, the
   // committed ./plugin subtree carries a manifest shape Claude Code will not
-  // load; regenerate it with `bun run build:release` after fixing build.js.
+  // load; regenerate it with `npm run build:release` after fixing build.js.
   test('the shipped manifest honors the verified loader contract', () => {
     expect(collectPluginManifestFindings(REPO_ROOT)).toEqual([]);
   });

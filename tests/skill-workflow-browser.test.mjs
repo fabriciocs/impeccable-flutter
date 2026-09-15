@@ -9,7 +9,7 @@ import { chromium } from './lib/browser-driver.mjs';
 it('fails browser preflight with an actionable error before starting a workflow', async () => {
   const launch = mock.method(chromium, 'launch', async () => { throw new Error('browser missing'); });
   try {
-    await assert.rejects(prepareBrowser('/unused'), /playwright install chromium/);
+    await assert.rejects(prepareBrowser('/unused'), /set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge browser when auto-discovery is unavailable/);
   } finally {
     launch.mock.restore();
   }
