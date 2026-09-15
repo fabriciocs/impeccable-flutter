@@ -141,7 +141,7 @@ pub fn detect_flutter_project(dir: &str) -> Option<DetectedFlutterProject> {
 /// Preserve upstream web framework detection for web projects, but never map
 /// Flutter onto a fixed-port browser framework. The CLI still scans `.dart`
 /// source through this wrapper's walker.
-pub fn detect_framework_config(dir: &str) -> Option<FrameworkConfig> {
+pub fn detect_framework_config(dir: &str) -> Option<DetectedFramework> {
     if detect_flutter_project(dir).is_some() {
         None
     } else {
