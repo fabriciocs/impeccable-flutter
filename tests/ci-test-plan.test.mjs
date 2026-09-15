@@ -14,10 +14,10 @@ describe('ci-test-plan', () => {
     const job = workflow.split('\n  skill-workflow:')[1];
     assert.doesNotMatch(job.split('\n    steps:')[0], /runner\./, 'runner context is unavailable at job-level env');
     assert.match(job, /if: github.event_name == 'workflow_dispatch' && inputs.skill_workflow/);
-    assert.ok(job.indexOf('bun run fetch:engine') < job.indexOf('bun run test:skill-workflow'));
-    assert.ok(job.indexOf('playwright install --with-deps chromium') < job.indexOf('bun run test:skill-workflow'));
+    assert.ok(job.indexOf('npm run fetch:engine') < job.indexOf('npm run test:skill-workflow'));
+    assert.ok(job.indexOf('Resolve host browser') < job.indexOf('npm run test:skill-workflow'));
     const protocol = workflow.split('\n  skill-behavior:')[1].split('\n  skill-workflow:')[0];
-    assert.match(protocol, /bun run fetch:engine/);
+    assert.match(protocol, /npm run fetch:engine/);
     assert.doesNotMatch(protocol, /IMPECCABLE_SKILL_BEHAVIOR_MODELS:/, 'protocol coverage must retain the multi-family defaults');
     assert.match(protocol, /GOOGLE_CLOUD_API_KEY:/);
     assert.match(protocol, /ANTHROPIC_API_KEY:/);
