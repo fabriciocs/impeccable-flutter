@@ -1,0 +1,94 @@
+name: Fix Browser Driver Temp
+
+on:
+  push:
+    branches: [chore/node-npm-puppeteer-migration-20260915]
+    paths:
+      - '.github/workflows/fix-browser-driver-temp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: chore/node-npm-puppeteer-migration-20260915
+          fetch-depth: 0
+          token: ${{ github.token }}
+      - name: Patch browser driver
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tests/lib/browser-driver.mjs')
+          s = p.read_text()
+          old = '''  async _handles() {
+              const handles = await this.page.raw.$$(this.selector);
+              const hasText = this.options?.hasText;
+              if (hasText == null) return handles;
+              const out = [];
+              for (const handle of handles) {
+                const text = await handle.evaluate((el) => el.textContent || '');
+                const matched = hasText instanceof RegExp ? hasText.test(text) : text.includes(String(hasText));
+                if (matched) out.push(handle);
+              }
+              return out;
+            }
+          '''.replace('              ', '')
+          new = '''  async _handles() {
+            let handles = await this.page.raw.$$(this.selector);
+            if (handles.length === 0) {
+              const list = await this.page.raw.evaluateHandle((selector) => {
+                const matches = [];
+                const roots = [document];
+                for (let i = 0; i < roots.length; i++) {
+                  const root = roots[i];
+                  for (const element of root.querySelectorAll(selector)) {
+                    if (!matches.includes(element)) matches.push(element);
+                  }
+                  for (const element of root.querySelectorAll('*')) {
+                    if (element.shadowRoot) roots.push(element.shadowRoot);
+                  }
+                }
+                return matches;
+              }, this.selector);
+              const properties = await list.getProperties();
+              handles = [];
+              for (const [key, value] of properties) {
+                if (!/^\\d+$/.test(key)) continue;
+                const element = value.asElement();
+                if (element) handles.push(element);
+              }
+              await list.dispose();
+            }
+            const hasText = this.options?.hasText;
+            if (hasText == null) return handles;
+            const out = [];
+            for (const handle of handles) {
+              const text = await handle.evaluate((el) => el.textContent || '');
+              const matched = hasText instanceof RegExp ? hasText.test(text) : text.includes(String(hasText));
+              if (matched) out.push(handle);
+            }
+            return out;
+          }
+          '''
+          if old not in s:
+              raise SystemExit('expected _handles block not found')
+          s = s.replace(old, new)
+          marker = "  screenshot(options) { return this.raw.screenshot(options); }\n"
+          if marker not in s:
+              raise SystemExit('screenshot marker not found')
+          s = s.replace(marker, marker + "  content() { return this.raw.content(); }\n")
+          p.write_text(s)
+          PY
+      - name: Commit fix
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/lib/browser-driver.mjs
+          git commit -m 'fix: query live controls across shadow DOM'
+          git push origin HEAD:chore/node-npm-puppeteer-migration-20260915
