@@ -17,7 +17,7 @@ function activeDocs(text) {
     .replaceAll('bun test tests/build.test.js', 'node --test tests/build.test.js')
     .replaceAll('bun test', 'node --test')
     .replaceAll('npx playwright install --with-deps chromium', 'set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge binary when auto-discovery is unavailable')
-    .replaceAll('npx playwright install chromium', 'set `PUPPETEER_EXECUTABLE_PATH` to an installed Chrome/Chromium/Edge binary if auto-discovery is unavailable')
+    .replaceAll('npx playwright install chromium', 'set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge binary if auto-discovery is unavailable')
     .replaceAll('Playwright Chromium', 'puppeteer-core with host Chrome/Chromium/Edge')
     .replaceAll("Playwright's browser cache", 'an installed Chrome/Chromium/Edge browser')
     .replaceAll('Playwright browser install', 'host browser resolution')
@@ -28,7 +28,14 @@ function activeDocs(text) {
     .replaceAll("Bun's test runner plus Node's built-in `--test`", "Node's built-in `node:test` runner")
     .replaceAll('full Bun + Node test suite', 'full Node test suite')
     .replaceAll('Bun test suite', 'Node test suite')
-    .replaceAll('Rust and Bun/Node checks', 'Rust and Node checks');
+    .replaceAll('Rust and Bun/Node checks', 'Rust and Node checks')
+    .replaceAll('run a focused Bun test', 'run a focused Node test')
+    .replaceAll('In the sandbox, Bun can hit filesystem errors while removing/recreating those trees', 'In the sandbox, filesystem operations can fail while removing/recreating those trees')
+    .replaceAll('Tests use Bun\'s test runner plus Node\'s built-in `--test`.', 'Tests use Node\'s built-in `node:test` runner.')
+    .replaceAll('needs `set `PUPPETEER_EXECUTABLE_PATH` to an installed Chrome/Chromium/Edge binary if auto-discovery is unavailable` once', 'uses an installed Chrome/Chromium/Edge browser; set `PUPPETEER_EXECUTABLE_PATH` if auto-discovery is unavailable')
+    .replaceAll('needs set `PUPPETEER_EXECUTABLE_PATH` to an installed Chrome/Chromium/Edge binary if auto-discovery is unavailable once', 'uses an installed Chrome/Chromium/Edge browser; set `PUPPETEER_EXECUTABLE_PATH` if auto-discovery is unavailable')
+    .replaceAll('needs `PUPPETEER_EXECUTABLE_PATH` to an installed Chrome/Chromium/Edge binary if auto-discovery is unavailable once', 'uses an installed Chrome/Chromium/Edge browser; set `PUPPETEER_EXECUTABLE_PATH` if auto-discovery is unavailable')
+    .replaceAll('tests run via `node --test`; everything that spawns', 'tests run via `node:test`; everything that spawns');
 }
 
 for (const path of ['CLAUDE.md', 'AGENTS.md', 'docs/DEVELOP.md', '.github/PULL_REQUEST_TEMPLATE.md']) {
