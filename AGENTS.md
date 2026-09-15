@@ -12,10 +12,10 @@
 - `npm run build:release` - release/distribution build: run the full build and sync tracked root harness folders plus `plugin/`.
 - `npm run rebuild` - clean and rebuild everything from scratch without syncing tracked harness folders.
 - `npm run rebuild:release` - clean and rebuild everything, including tracked harness output sync.
-- `node --test tests/build.test.js` - run a focused Bun test.
+- `node --test tests/build.test.js` - run a focused Node test.
 - `npm run fetch:engine` - download the pinned engine binary for this machine into `skill/scripts/bin/<os>-<arch>/` (or set `IMPECCABLE_BIN` to a local build). The oracle and framework suites skip without it.
 - `npm run test` - run the full Node test suite (includes the oracle replay against the engine binary and the plugin loader E2E, which installs the committed `plugin/` subtree into a sandboxed real Claude Code and skips cleanly when the `claude` CLI is absent).
-- `npm run test:live-e2e` - opt-in live-mode E2E against framework fixtures (~2 min; needs `set `PUPPETEER_EXECUTABLE_PATH` to an installed Chrome/Chromium/Edge binary if auto-discovery is unavailable` once).
+- `npm run test:live-e2e` - opt-in live-mode E2E against framework fixtures (~2 min; uses an installed Chrome/Chromium/Edge browser; set `PUPPETEER_EXECUTABLE_PATH` if auto-discovery is unavailable).
 - `npm run test:skill-behavior` - opt-in LLM-backed checks that the SKILL.md Setup flow actually drives the agent (runs claude-sonnet-5 / gpt-5.6-luna / gemini-3.5-flash / deepseek-v4-flash; needs `.env` with provider keys).
 - `npm run test:plugin-e2e` - just the plugin loader E2E, for fast iteration on `plugin/`, `skill/agents/`, or `scripts/build.js` changes.
 - `npm run build:extension` - rebuild the extension bundle (it runs `cargo xtask bundle`, which also refreshes the in-page detector bundle).
@@ -33,7 +33,7 @@ Normal development should be source-first: stage changes in `crates/`, `browser-
 Some repo workflows need to run outside the sandbox in the desktop app:
 
 - GitHub SSH operations that depend on the 1Password SSH agent, such as `gh pr checkout`, may fail in the sandbox with `sign_and_send_pubkey` or no 1Password approval prompt. Rerun them outside the sandbox instead of falling back to unrelated workarounds.
-- `npm run build:release` rewrites committed harness directories such as `.agents/skills/`. In the sandbox, Bun can hit filesystem errors while removing/recreating those trees (for example `EFAULT` on `.agents/skills`). Rerun the release build outside the sandbox before treating it as a real build failure.
+- `npm run build:release` rewrites committed harness directories such as `.agents/skills/`. In the sandbox, filesystem operations can fail while removing/recreating those trees (for example `EFAULT` on `.agents/skills`). Rerun the release build outside the sandbox before treating it as a real build failure.
 - The oracle and framework suites spawn the engine binary many times; run them with Node (`node --test tests/oracle.test.mjs`), which is what `npm run test` does.
 
 ## Coding Style & Naming Conventions

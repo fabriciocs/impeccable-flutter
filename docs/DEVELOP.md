@@ -139,7 +139,7 @@ scripts/
 
 ```bash
 npm run test                  # Default suite — unit + static fixtures (no API keys needed)
-npm run test:live-e2e         # Opt-in — full-cycle live-mode E2E across framework fixtures (~2 min, needs `set `PUPPETEER_EXECUTABLE_PATH` to an installed Chrome/Chromium/Edge binary if auto-discovery is unavailable` once)
+npm run test:live-e2e         # Opt-in — full-cycle live-mode E2E across framework fixtures (~2 min, uses an installed Chrome/Chromium/Edge browser; set `PUPPETEER_EXECUTABLE_PATH` if auto-discovery is unavailable)
 npm run test:skill-behavior   # Opt-in — LLM-backed checks that the SKILL.md Setup flow actually drives the agent (~5 min, costs cents, needs `.env`)
 ```
 
