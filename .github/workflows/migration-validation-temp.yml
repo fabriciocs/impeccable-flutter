@@ -1,5 +1,5 @@
 name: Migration Validation Temp
-# Rerun after removing the final retired bunx command form.
+# Rerun after removing the final retired package-runner command form.
 
 on:
   push:
