@@ -2,12 +2,28 @@
 
 Load this reference whenever the target project is Flutter (`pubspec.yaml` declares the Flutter SDK), regardless of whether PRODUCT.md calls the platform `android`, `ios`, `adaptive`, or leaves it unspecified.
 
+## Project classification and context contract
+
+Flutter is a technology/framework axis, not a replacement for product platform. A project may therefore resolve as `technology=flutter`, `framework=flutter`, and `platform=android`, `ios`, `adaptive`, or another supported product value at the same time.
+
+Project identification must be structural and deterministic:
+
+- Dart package: a package root with `pubspec.yaml`;
+- Flutter project: `dependencies.flutter.sdk: flutter` or `dev_dependencies.flutter.sdk: flutter` in `pubspec.yaml`;
+- Flutter app: Flutter SDK plus an application entry point/platform target;
+- Flutter package: Flutter SDK package without application evidence;
+- Flutter plugin: Flutter SDK plus the `flutter.plugin` declaration;
+- Flutter Web: a Flutter project with a `web/` target. This does not imply a fixed dev-server port;
+- Dart/Flutter workspace: native Dart `workspace:` or a Melos workspace, with the selected package kept distinct from the workspace root.
+
+Do not classify a project as Flutter merely because a `flutter:` key, asset name, comment, or unrelated string appears in YAML. When context already emits `technology`, `framework`, or `FLUTTER_REFERENCE_REQUIRED`, treat that resolved context as the primary signal and use `pubspec.yaml` as the fallback verification source.
+
 ## Establish the Flutter truth before editing
 
 Read, at minimum:
 
 - `pubspec.yaml` for SDK, Material/Cupertino packages, fonts, assets, localization, and state/navigation dependencies;
-- `lib/main.dart` or the real application entry point;
+- `lib/main.dart` or the real application entry point, including alternate `main_*.dart`, `*_main.dart`, `bin/*.dart`, and relevant example entry points when the repository uses them;
 - the app-level `ThemeData`, `ColorScheme`, `TextTheme`, extensions, and spacing/radius tokens;
 - representative widgets for the requested surface;
 - router/navigation configuration when the task affects flows;
@@ -20,11 +36,15 @@ Do not translate web CSS advice mechanically into Flutter. Work in Flutter primi
 These are different evidence layers.
 
 - `impeccable detect lib/` scans Dart source and reports Flutter-specific source rules.
+- `impeccable detect path/to/file.dart` scans an individual Dart file.
+- Dart/Flutter source passed through stdin is eligible for Dart dispatch when strong Dart/Flutter source signals are present.
 - A browser scan of Flutter Web inspects only the rendered browser output. It does not read or understand the Dart source that produced it.
 - Never claim that a browser finding proves a specific Dart implementation detail.
 - When Flutter Web is available, use both layers: source scan for Dart patterns and rendered inspection for visual/layout behavior.
 
-For a source-only Flutter project, the absence of a browser URL is not a blocker. Continue with Dart source, existing goldens/screenshots, and Flutter-native validation.
+Generated output is not application source. Exclude `.dart_tool/`, `build/`, generated platform/build artifacts, and dependency/vendor trees from ordinary source traversal unless the user explicitly targets them.
+
+For a source-only or native Flutter project, the absence of a browser URL is not a blocker. Continue with Dart source, existing goldens/screenshots, and Flutter-native validation. Never invent a localhost URL or port for Flutter Web; use a rendered endpoint only when it is explicitly available or independently discovered as evidence.
 
 ## Theme and component discipline
 
@@ -94,7 +114,24 @@ The CLI can scan Dart source directly:
 
 ```text
 impeccable detect lib/
+impeccable detect path/to/file.dart
 impeccable detect --json lib/
 ```
 
 Flutter project detection intentionally does not assume a dev-server port because Flutter Web may use an ephemeral port. If the user starts a Flutter Web server on a known URL, pass that URL explicitly for rendered inspection.
+
+## Definition of done for Flutter UI work
+
+Before considering Flutter UI work complete, verify the applicable items below:
+
+- the selected Dart/Flutter package and workspace roots are correct;
+- implementation follows the existing theme/design system instead of introducing an unrelated visual language;
+- loading, empty, error, disabled, focused/hovered where applicable, and success states remain coherent;
+- asynchronous UI code respects widget lifecycle (`mounted`/context validity) and does not create avoidable race conditions;
+- layouts are checked at the product's relevant device classes, text scales, orientations, and insets;
+- semantics, focus order, keyboard behavior for desktop/web, labels/tooltips, target sizes, and contrast are appropriate;
+- changed `.dart` targets are passed through Impeccable source detection at least once;
+- project-native formatting, analyzer, and tests are run at the strongest practical scope;
+- goldens/widget/integration tests are updated only when the intended UI behavior changed;
+- Flutter Web rendered inspection, when a real URL exists, is recorded as additional evidence rather than substituted for source validation;
+- no generated `.dart_tool/` or `build/` output is treated as authored application source.
