@@ -32,19 +32,45 @@ function updateFromState(state) {
   btnToggle.textContent = overlaysVisible ? 'Hide overlays' : 'Show overlays';
 }
 
+/**
+ * Best-effort rendered Flutter Web identification.
+ *
+ * This function is intentionally self-contained because Chrome serializes it
+ * into the inspected page with `executeScript`. It combines stable bootstrap
+ * evidence with DOM evidence instead of depending only on private `flt-*`
+ * internals, which can change between Flutter renderer versions.
+ */
+function detectFlutterWebDocument() {
+  const scriptSources = Array.from(document.scripts, (script) => script.src || '');
+  const hasFlutterBootstrap = scriptSources.some((src) =>
+    /(?:^|\/)(?:flutter(?:_bootstrap)?\.js|main\.dart\.js)(?:[?#]|$)/i.test(src),
+  );
+  const hasFlutterGlobal = Boolean(
+    window._flutter
+      || window.flutterConfiguration
+      || window.flutterWebRenderer,
+  );
+  const hasStableFlutterElement = Boolean(document.querySelector('flutter-view'));
+  const hasLegacyRendererElement = Boolean(
+    document.querySelector('flt-glass-pane, flt-scene-host'),
+  );
+  const hasFlutterAssetManifest = Array.from(document.querySelectorAll('link[href], meta[content]'))
+    .some((node) => /(?:flutter_service_worker\.js|assets\/AssetManifest)/i.test(
+      node.getAttribute('href') || node.getAttribute('content') || '',
+    ));
+
+  return hasFlutterBootstrap
+    || hasFlutterGlobal
+    || hasStableFlutterElement
+    || hasLegacyRendererElement
+    || hasFlutterAssetManifest;
+}
+
 async function updateFlutterHint(tabId) {
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId },
-      func: () => {
-        const hasFlutterRoot = Boolean(
-          document.querySelector('flt-glass-pane, flutter-view, flt-scene-host'),
-        );
-        const hasFlutterScript = Array.from(document.scripts).some((script) =>
-          /(?:flutter(?:_bootstrap)?\.js|main\.dart\.js)(?:[?#]|$)/i.test(script.src || ''),
-        );
-        return Boolean(window._flutter || hasFlutterRoot || hasFlutterScript);
-      },
+      func: detectFlutterWebDocument,
     });
     flutterHint.hidden = results?.[0]?.result !== true;
   } catch {
@@ -85,6 +111,20 @@ chrome.runtime.onMessage.addListener((msg) => {
     overlaysVisible = msg.visible;
     btnToggle.textContent = overlaysVisible ? 'Hide overlays' : 'Show overlays';
   }
+});
+
+// Refresh the best-effort Flutter hint if the active tab changes or finishes a
+// navigation while the popup remains open. Source/project classification is
+// intentionally independent from this rendered-page hint.
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+  activeTabId = tabId;
+  chrome.runtime.sendMessage({ action: 'get-state', tabId }, updateFromState);
+  await updateFlutterHint(tabId);
+});
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
+  if (tabId !== activeTabId || changeInfo.status !== 'complete') return;
+  await updateFlutterHint(tabId);
 });
 
 btnScan.addEventListener('click', async () => {
