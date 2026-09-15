@@ -2,23 +2,27 @@ name: Sync Generated Provider Output
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - chore/node-npm-puppeteer-migration-20260915
     paths:
       - ".claude-plugin/**"
       - "cli/engine/**"
       - "skill/**"
       - "scripts/**"
+      - "tests/ci-test-plan.test.mjs"
       - "docs/CURSOR-PLUGIN.md"
       - "LICENSE"
       - "package.json"
       - "package-lock.json"
+      - ".github/workflows/sync-generated-output.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: sync-generated-output
+  group: sync-generated-output-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -48,29 +52,53 @@ env:
     cursor-plugin
 
 jobs:
+  migration-fixups:
+    if: github.ref_name == 'chore/node-npm-puppeteer-migration-20260915'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: chore/node-npm-puppeteer-migration-20260915
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_GENERATED_OUTPUT_TOKEN || github.token }}
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.18.0
+      - name: Apply fixups
+        run: node scripts/apply-node-migration-fixups.mjs
+      - name: Commit fixups
+        run: |
+          set -euo pipefail
+          git add scripts/release.mjs tests/ci-test-plan.test.mjs
+          if git diff --cached --quiet; then
+            echo "Fixups already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: finish Node runtime command migration"
+          git push origin HEAD:chore/node-npm-puppeteer-migration-20260915
+
   sync:
+    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          # Optional PAT or GitHub App token. With the default GITHUB_TOKEN,
-          # GitHub suppresses follow-up workflow runs from the generated commit.
           token: ${{ secrets.SYNC_GENERATED_OUTPUT_TOKEN || github.token }}
-
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Build release output
         run: npm run build:release
-
       - name: Check generated output drift
         id: drift
         run: |
@@ -82,7 +110,6 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
             printf '%s\n' "$changes"
           fi
-
       - name: Commit generated output
         id: commit
         if: steps.drift.outputs.changed == 'true'
@@ -90,9 +117,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # A push can lose the race against a human commit landing on main
-          # during the build window. Re-sync to latest main, rebuild, and retry.
           for attempt in 1 2 3 4 5; do
             git add $GENERATED_PATHS
             if git diff --cached --quiet; then
@@ -101,26 +125,20 @@ jobs:
               exit 0
             fi
             git commit -m "Sync generated provider output"
-
             git fetch origin main
             if git merge-base --is-ancestor origin/main HEAD && git push origin HEAD:main; then
               echo "Pushed generated output on attempt $attempt."
               echo "pushed=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-
             if [ "$attempt" = 5 ]; then break; fi
-
-            echo "Push did not land on attempt $attempt; re-syncing and rebuilding."
             git reset --hard origin/main
             npm ci
             npm run build:release
             sleep $((attempt * 5))
           done
-
           echo "::error::Could not push generated output after 5 attempts."
           exit 1
-
       - name: Summarize generated output commit
         if: steps.drift.outputs.changed == 'true'
         run: |
