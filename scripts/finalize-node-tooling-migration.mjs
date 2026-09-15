@@ -70,3 +70,10 @@ update('tests/node-test-loader.mjs', (text) => {
   next = next.replace(/\n  if \(specifier === 'playwright'\) \{\n    return \{ url: BROWSER_DRIVER_URL, shortCircuit: true \};\n  \}/, '');
   return next;
 });
+
+update('scripts/test-suites.mjs', (text) => {
+  if (text.includes("'tests/tooling-runtime.test.mjs'")) return text;
+  const needle = "          'tests/test-suites.test.mjs',\n";
+  if (!text.includes(needle)) throw new Error('scripts/test-suites.mjs: core test insertion point not found');
+  return text.replace(needle, `${needle}          'tests/tooling-runtime.test.mjs',\n`);
+});
