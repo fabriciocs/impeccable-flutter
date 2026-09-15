@@ -2,9 +2,7 @@ name: Sync Generated Provider Output
 
 on:
   push:
-    branches:
-      - main
-      - chore/node-npm-puppeteer-migration-20260915
+    branches: [main]
     paths:
       - ".claude-plugin/**"
       - "cli/engine/**"
@@ -14,14 +12,13 @@ on:
       - "LICENSE"
       - "package.json"
       - "package-lock.json"
-      - ".github/workflows/sync-generated-output.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: sync-generated-output-${{ github.ref }}
+  group: sync-generated-output
   cancel-in-progress: false
 
 env:
@@ -51,46 +48,15 @@ env:
     cursor-plugin
 
 jobs:
-  bootstrap-npm-lock:
-    if: github.ref_name == 'chore/node-npm-puppeteer-migration-20260915'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout migration branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: chore/node-npm-puppeteer-migration-20260915
-          fetch-depth: 0
-          token: ${{ secrets.SYNC_GENERATED_OUTPUT_TOKEN || github.token }}
-
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22.18.0
-
-      - name: Generate npm lockfile
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-
-      - name: Commit npm lockfile
-        run: |
-          set -euo pipefail
-          git add package-lock.json
-          if git diff --cached --quiet; then
-            echo "package-lock.json already current."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: add reproducible npm lockfile"
-          git push origin HEAD:chore/node-npm-puppeteer-migration-20260915
-
   sync:
-    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          # Optional PAT or GitHub App token. With the default GITHUB_TOKEN,
+          # GitHub suppresses follow-up workflow runs from the generated commit.
           token: ${{ secrets.SYNC_GENERATED_OUTPUT_TOKEN || github.token }}
 
       - name: Setup Node
@@ -125,6 +91,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          # A push can lose the race against a human commit landing on main
+          # during the build window. Re-sync to latest main, rebuild, and retry.
           for attempt in 1 2 3 4 5; do
             git add $GENERATED_PATHS
             if git diff --cached --quiet; then
