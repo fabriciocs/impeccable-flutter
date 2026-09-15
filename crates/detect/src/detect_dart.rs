@@ -1,9 +1,9 @@
 //! Flutter/Dart source detector.
 //!
-//! This ports the Dart-specific detector from the historical
-//! `feature/adaptation_to_flutter` branch into the current Rust detector
-//! architecture. The browser detector still evaluates rendered Flutter Web
-//! output; this module is intentionally source-only.
+//! The browser detector evaluates rendered Flutter Web output. This module is
+//! intentionally source-only and keeps the public Flutter rule IDs stable.
+//! It uses balanced Dart call spans rather than fixed line windows so a widget
+//! can be formatted across many lines without losing its structural context.
 
 use std::collections::HashSet;
 
@@ -95,6 +95,9 @@ pub static FLUTTER_RULES: &[Antipattern] = &[
     },
 ];
 
+static CALL_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\(").expect("valid Dart call regex")
+});
 static OVER_ROUNDED_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"BorderRadius\.circular\(\s*(\d+(?:\.\d+)?)\s*\)").unwrap());
 static COLORED_SURFACE_RE: Lazy<Regex> = Lazy::new(|| {
@@ -103,14 +106,18 @@ static COLORED_SURFACE_RE: Lazy<Regex> = Lazy::new(|| {
 static AI_GRADIENT_COLOR_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)\bColors\.(?:purple|deepPurple|violet|indigo|cyan)\b|0x(?:FF)?(?:8B5CF6|A855F7|7C3AED|6366F1|06B6D4|22D3EE)\b").unwrap()
 });
-static HARD_CODED_TEXT_STYLE_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?s)TextStyle\s*\(.{0,160}?fontSize\s*:").unwrap());
 static MONOTONOUS_PADDING_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"EdgeInsets\.all\(\s*16(?:\.0)?\s*\)").unwrap());
 static GREY_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"\bColors\.gr[ae]y(?:\s*\[|\b)").unwrap());
-static ACTION_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"\b(GestureDetector|InkWell)\s*\(").unwrap());
+
+#[derive(Debug, Clone)]
+struct CallSpan {
+    name: String,
+    start: usize,
+    open: usize,
+    end: usize,
+}
 
 fn line_number_at(content: &str, byte_index: usize) -> usize {
     content[..byte_index.min(content.len())]
@@ -118,12 +125,6 @@ fn line_number_at(content: &str, byte_index: usize) -> usize {
         .filter(|b| *b == b'\n')
         .count()
         + 1
-}
-
-fn context_around(lines: &[&str], index: usize, before: usize, after: usize) -> String {
-    let start = index.saturating_sub(before);
-    let end = (index + after + 1).min(lines.len());
-    lines[start..end].join("\n")
 }
 
 fn push_finding(
@@ -140,6 +141,201 @@ fn push_finding(
     }
 }
 
+/// Replace comments and string literal bytes with spaces while preserving byte
+/// offsets and newlines. Structural scanning can therefore ignore examples in
+/// comments/strings without needing a full Dart parser.
+fn structural_source(content: &str) -> String {
+    const CODE: u8 = 0;
+    const LINE_COMMENT: u8 = 1;
+    const BLOCK_COMMENT: u8 = 2;
+    const SINGLE: u8 = 3;
+    const DOUBLE: u8 = 4;
+    const TRIPLE_SINGLE: u8 = 5;
+    const TRIPLE_DOUBLE: u8 = 6;
+
+    let input = content.as_bytes();
+    let mut out = input.to_vec();
+    let mut state = CODE;
+    let mut i = 0;
+
+    while i < input.len() {
+        let next = |offset: usize| input.get(i + offset).copied();
+        match state {
+            CODE => {
+                if input[i] == b'/' && next(1) == Some(b'/') {
+                    out[i] = b' ';
+                    out[i + 1] = b' ';
+                    state = LINE_COMMENT;
+                    i += 2;
+                    continue;
+                }
+                if input[i] == b'/' && next(1) == Some(b'*') {
+                    out[i] = b' ';
+                    out[i + 1] = b' ';
+                    state = BLOCK_COMMENT;
+                    i += 2;
+                    continue;
+                }
+                if input[i] == b'\'' && next(1) == Some(b'\'') && next(2) == Some(b'\'') {
+                    out[i] = b' ';
+                    out[i + 1] = b' ';
+                    out[i + 2] = b' ';
+                    state = TRIPLE_SINGLE;
+                    i += 3;
+                    continue;
+                }
+                if input[i] == b'"' && next(1) == Some(b'"') && next(2) == Some(b'"') {
+                    out[i] = b' ';
+                    out[i + 1] = b' ';
+                    out[i + 2] = b' ';
+                    state = TRIPLE_DOUBLE;
+                    i += 3;
+                    continue;
+                }
+                if input[i] == b'\'' {
+                    out[i] = b' ';
+                    state = SINGLE;
+                } else if input[i] == b'"' {
+                    out[i] = b' ';
+                    state = DOUBLE;
+                }
+                i += 1;
+            }
+            LINE_COMMENT => {
+                if input[i] == b'\n' {
+                    state = CODE;
+                } else {
+                    out[i] = b' ';
+                }
+                i += 1;
+            }
+            BLOCK_COMMENT => {
+                if input[i] == b'*' && next(1) == Some(b'/') {
+                    out[i] = b' ';
+                    out[i + 1] = b' ';
+                    state = CODE;
+                    i += 2;
+                } else {
+                    if input[i] != b'\n' {
+                        out[i] = b' ';
+                    }
+                    i += 1;
+                }
+            }
+            SINGLE | DOUBLE => {
+                let quote = if state == SINGLE { b'\'' } else { b'"' };
+                if input[i] == b'\\' {
+                    out[i] = b' ';
+                    if i + 1 < input.len() {
+                        if input[i + 1] != b'\n' {
+                            out[i + 1] = b' ';
+                        }
+                        i += 2;
+                    } else {
+                        i += 1;
+                    }
+                } else if input[i] == quote {
+                    out[i] = b' ';
+                    state = CODE;
+                    i += 1;
+                } else {
+                    if input[i] != b'\n' {
+                        out[i] = b' ';
+                    }
+                    i += 1;
+                }
+            }
+            TRIPLE_SINGLE | TRIPLE_DOUBLE => {
+                let quote = if state == TRIPLE_SINGLE { b'\'' } else { b'"' };
+                if input[i] == quote && next(1) == Some(quote) && next(2) == Some(quote) {
+                    out[i] = b' ';
+                    out[i + 1] = b' ';
+                    out[i + 2] = b' ';
+                    state = CODE;
+                    i += 3;
+                } else {
+                    if input[i] != b'\n' {
+                        out[i] = b' ';
+                    }
+                    i += 1;
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    String::from_utf8(out).unwrap_or_else(|_| content.to_string())
+}
+
+fn matching_paren(source: &[u8], open: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (offset, byte) in source.iter().enumerate().skip(open) {
+        match byte {
+            b'(' => depth += 1,
+            b')' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(offset + 1);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn find_calls(source: &str) -> Vec<CallSpan> {
+    let bytes = source.as_bytes();
+    let mut calls = Vec::new();
+    for capture in CALL_RE.captures_iter(source) {
+        let Some(whole) = capture.get(0) else { continue };
+        let Some(name) = capture.get(1) else { continue };
+        let open = whole.end().saturating_sub(1);
+        let Some(end) = matching_paren(bytes, open) else { continue };
+        calls.push(CallSpan {
+            name: name.as_str().to_string(),
+            start: whole.start(),
+            open,
+            end,
+        });
+    }
+    calls
+}
+
+fn call_body<'a>(source: &'a str, call: &CallSpan) -> &'a str {
+    if call.open + 1 >= call.end.saturating_sub(1) {
+        ""
+    } else {
+        &source[call.open + 1..call.end - 1]
+    }
+}
+
+fn encloses(call: &CallSpan, position: usize) -> bool {
+    call.start <= position && position < call.end
+}
+
+fn nearest_enclosing<'a>(
+    calls: &'a [CallSpan],
+    position: usize,
+    names: &[&str],
+) -> Option<&'a CallSpan> {
+    calls
+        .iter()
+        .filter(|call| encloses(call, position) && names.contains(&call.name.as_str()))
+        .min_by_key(|call| call.end.saturating_sub(call.start))
+}
+
+fn is_decorative_surface(source: &str, call: &CallSpan) -> bool {
+    match call.name.as_str() {
+        "Card" | "DecoratedBox" | "InputDecoration" | "Panel" => true,
+        "Container" => {
+            let body = call_body(source, call);
+            body.contains("decoration:") || body.contains("color:")
+        }
+        _ => false,
+    }
+}
+
 /// Register the source-only Flutter rows in the process registry. `extend`
 /// treats repeated installation of this same static slice as a no-op.
 pub fn register_flutter_rules() {
@@ -150,27 +346,26 @@ pub fn register_flutter_rules() {
 pub fn detect_dart(content: &str, file_path: &str) -> Vec<Finding> {
     register_flutter_rules();
 
+    let structural = structural_source(content);
+    let calls = find_calls(&structural);
     let mut findings = Vec::new();
     let mut seen = HashSet::new();
-    let lines: Vec<&str> = content.split('\n').collect();
 
-    for m in OVER_ROUNDED_RE.captures_iter(content) {
-        let radius = m
+    for capture in OVER_ROUNDED_RE.captures_iter(&structural) {
+        let radius = capture
             .get(1)
-            .and_then(|v| v.as_str().parse::<f64>().ok())
+            .and_then(|value| value.as_str().parse::<f64>().ok())
             .unwrap_or(0.0);
         if radius < 32.0 {
             continue;
         }
-        let whole = m.get(0).unwrap();
-        let line = line_number_at(content, whole.start());
-        let context = context_around(&lines, line.saturating_sub(1), 6, 8);
-        if !(context.contains("Card(")
-            || context.contains("Container(")
-            || context.contains("InputDecoration(")
-            || context.contains("DecoratedBox(")
-            || context.contains("Panel(")
-            || context.contains("decoration: BoxDecoration("))
+        let whole = capture.get(0).unwrap();
+        if nearest_enclosing(
+            &calls,
+            whole.start(),
+            &["Card", "Container", "InputDecoration", "DecoratedBox", "Panel"],
+        )
+        .is_none()
         {
             continue;
         }
@@ -179,105 +374,134 @@ pub fn detect_dart(content: &str, file_path: &str) -> Vec<Finding> {
             &mut seen,
             "flutter-over-rounded-card",
             file_path,
-            whole.as_str().to_string(),
-            line,
+            content[whole.start()..whole.end()].to_string(),
+            line_number_at(content, whole.start()),
         );
     }
 
-    for (i, line_text) in lines.iter().enumerate() {
-        if line_text.contains("LinearGradient(") {
-            let block = context_around(&lines, i, 6, 12);
-            if AI_GRADIENT_COLOR_RE.is_match(&block)
-                && ["Container(", "Card(", "BoxDecoration(", "DecoratedBox(", "Hero("]
-                    .iter()
-                    .any(|needle| block.contains(needle))
-            {
-                push_finding(
-                    &mut findings,
-                    &mut seen,
-                    "flutter-ai-gradient-container",
-                    file_path,
-                    "LinearGradient purple/cyan palette".to_string(),
-                    i + 1,
-                );
-            }
+    for gradient in calls.iter().filter(|call| call.name == "LinearGradient") {
+        let body = call_body(&structural, gradient);
+        if !AI_GRADIENT_COLOR_RE.is_match(body) {
+            continue;
         }
-
-        let block = context_around(&lines, i, 2, 12);
-        if (line_text.contains("ShaderMask(")
-            && block.contains("Text(")
-            && (block.contains("Gradient")
-                || block.contains("createShader")
-                || block.contains("shaderCallback")))
-            || line_text.contains("foreground: Paint()..shader")
-            || (block.contains("TextStyle(") && block.contains("shader:"))
+        if nearest_enclosing(
+            &calls,
+            gradient.start,
+            &["Container", "Card", "BoxDecoration", "DecoratedBox", "Hero"],
+        )
+        .is_some()
         {
+            push_finding(
+                &mut findings,
+                &mut seen,
+                "flutter-ai-gradient-container",
+                file_path,
+                "LinearGradient purple/cyan palette".to_string(),
+                line_number_at(content, gradient.start),
+            );
+        }
+    }
+
+    for shader in calls.iter().filter(|call| call.name == "ShaderMask") {
+        let body = call_body(&structural, shader);
+        if body.contains("Text(") && (body.contains("Gradient") || body.contains("createShader")) {
             push_finding(
                 &mut findings,
                 &mut seen,
                 "flutter-gradient-text",
                 file_path,
-                if line_text.contains("ShaderMask(") {
-                    "ShaderMask gradient text".to_string()
-                } else {
-                    "TextStyle shader text".to_string()
-                },
-                i + 1,
+                "ShaderMask gradient text".to_string(),
+                line_number_at(content, shader.start),
             );
         }
-
-        if GREY_RE.is_match(line_text) {
-            let context = context_around(&lines, i, 10, 6);
-            if COLORED_SURFACE_RE.is_match(&context)
-                && ["Container(", "ColoredBox(", "DecoratedBox(", "Card(", "Scaffold(", "color:", "decoration:"]
-                    .iter()
-                    .any(|needle| context.contains(needle))
-            {
-                push_finding(
-                    &mut findings,
-                    &mut seen,
-                    "flutter-grey-on-color",
-                    file_path,
-                    "Colors.grey on colored surface".to_string(),
-                    i + 1,
-                );
-            }
-        }
-
-        if let Some(action) = ACTION_RE.captures(line_text) {
-            let block = context_around(&lines, i, 4, 16);
-            if !(block.contains("Semantics(")
-                || block.contains("Tooltip(")
-                || block.contains("semanticLabel:")
-                || block.contains("tooltip:")
-                || block.contains("label:"))
-            {
-                let widget = action.get(1).map(|m| m.as_str()).unwrap_or("custom action");
-                push_finding(
-                    &mut findings,
-                    &mut seen,
-                    "flutter-missing-semantics-action",
-                    file_path,
-                    format!("{widget} without Semantics or Tooltip"),
-                    i + 1,
-                );
-            }
+    }
+    for style in calls.iter().filter(|call| call.name == "TextStyle") {
+        let body = call_body(&structural, style);
+        if (body.contains("foreground:") && body.contains("shader")) || body.contains("shader:") {
+            push_finding(
+                &mut findings,
+                &mut seen,
+                "flutter-gradient-text",
+                file_path,
+                "TextStyle shader text".to_string(),
+                line_number_at(content, style.start),
+            );
         }
     }
 
-    let hardcoded: Vec<_> = HARD_CODED_TEXT_STYLE_RE.find_iter(content).collect();
-    if hardcoded.len() >= 4 && !content.contains("Theme.of(context).textTheme") {
+    for grey in GREY_RE.find_iter(&structural) {
+        let Some(surface) = nearest_enclosing(
+            &calls,
+            grey.start(),
+            &["Container", "ColoredBox", "DecoratedBox", "Card", "Scaffold"],
+        ) else {
+            continue;
+        };
+        if COLORED_SURFACE_RE.is_match(call_body(&structural, surface)) {
+            push_finding(
+                &mut findings,
+                &mut seen,
+                "flutter-grey-on-color",
+                file_path,
+                "Colors.grey on colored surface".to_string(),
+                line_number_at(content, grey.start()),
+            );
+        }
+    }
+
+    for action in calls
+        .iter()
+        .filter(|call| matches!(call.name.as_str(), "GestureDetector" | "InkWell"))
+    {
+        let body = call_body(&structural, action);
+        let has_local_accessibility = body.contains("semanticLabel:")
+            || body.contains("tooltip:")
+            || body.contains("label:")
+            || body.contains("IconButton(")
+            || body.contains("TextButton(")
+            || body.contains("ElevatedButton(")
+            || body.contains("FilledButton(")
+            || body.contains("OutlinedButton(");
+        let wrapped_accessibly = calls.iter().any(|parent| {
+            parent.start < action.start
+                && parent.end >= action.end
+                && matches!(parent.name.as_str(), "Semantics" | "Tooltip")
+        });
+        if !has_local_accessibility && !wrapped_accessibly {
+            push_finding(
+                &mut findings,
+                &mut seen,
+                "flutter-missing-semantics-action",
+                file_path,
+                format!("{} without Semantics or Tooltip", action.name),
+                line_number_at(content, action.start),
+            );
+        }
+    }
+
+    let hardcoded: Vec<&CallSpan> = calls
+        .iter()
+        .filter(|call| call.name == "TextStyle" && call_body(&structural, call).contains("fontSize:"))
+        .filter(|style| {
+            nearest_enclosing(&calls, style.start, &["ThemeData", "TextTheme"]).is_none()
+        })
+        .collect();
+    let defines_theme_extension = structural.contains("extends ThemeExtension");
+    if hardcoded.len() >= 4
+        && !structural.contains("Theme.of(context).textTheme")
+        && !defines_theme_extension
+    {
         push_finding(
             &mut findings,
             &mut seen,
             "flutter-hardcoded-text-style",
             file_path,
             format!("{} local TextStyle(fontSize:) declarations", hardcoded.len()),
-            line_number_at(content, hardcoded[0].start()),
+            line_number_at(content, hardcoded[0].start),
         );
     }
 
-    let padding: Vec<_> = MONOTONOUS_PADDING_RE.find_iter(content).collect();
+    let padding: Vec<_> = MONOTONOUS_PADDING_RE.find_iter(&structural).collect();
     if padding.len() >= 4 {
         push_finding(
             &mut findings,
@@ -289,75 +513,26 @@ pub fn detect_dart(content: &str, file_path: &str) -> Vec<Finding> {
         );
     }
 
-    let mut depth: i32 = 0;
-    let mut card_depths: Vec<i32> = Vec::new();
-    let mut container_stack: Vec<(i32, bool)> = Vec::new();
-    for (i, line_text) in lines.iter().enumerate() {
-        while card_depths.last().is_some_and(|d| depth <= *d) {
-            card_depths.pop();
+    let decorative: Vec<&CallSpan> = calls
+        .iter()
+        .filter(|call| is_decorative_surface(&structural, call))
+        .collect();
+    for inner in &decorative {
+        let parent = decorative
+            .iter()
+            .copied()
+            .filter(|outer| outer.start < inner.start && outer.end >= inner.end)
+            .min_by_key(|outer| outer.end.saturating_sub(outer.start));
+        if let Some(parent) = parent {
+            push_finding(
+                &mut findings,
+                &mut seen,
+                "flutter-nested-card-container",
+                file_path,
+                format!("{} nested inside {}", inner.name, parent.name),
+                line_number_at(content, inner.start),
+            );
         }
-        while container_stack
-            .last()
-            .is_some_and(|(container_depth, _)| depth <= *container_depth)
-        {
-            container_stack.pop();
-        }
-
-        if line_text.contains("Card(") {
-            if !card_depths.is_empty() {
-                push_finding(
-                    &mut findings,
-                    &mut seen,
-                    "flutter-nested-card-container",
-                    file_path,
-                    "Card nested inside Card".to_string(),
-                    i + 1,
-                );
-            }
-            card_depths.push(depth);
-        }
-
-        if line_text.contains("Container(") {
-            let decorative = line_text.contains("decoration:") || line_text.contains("BoxDecoration(");
-            let parent_decorative = container_stack.iter().any(|(_, d)| *d);
-            if decorative && parent_decorative {
-                push_finding(
-                    &mut findings,
-                    &mut seen,
-                    "flutter-nested-card-container",
-                    file_path,
-                    "decorative Container nested inside decorative Container".to_string(),
-                    i + 1,
-                );
-            }
-            container_stack.push((depth, decorative));
-        }
-
-        if (line_text.contains("decoration:") || line_text.contains("BoxDecoration("))
-            && !container_stack.is_empty()
-        {
-            let parent_decorative = container_stack
-                .iter()
-                .take(container_stack.len().saturating_sub(1))
-                .any(|(_, d)| *d);
-            if let Some((_, decorative)) = container_stack.last_mut() {
-                *decorative = true;
-            }
-            if parent_decorative {
-                push_finding(
-                    &mut findings,
-                    &mut seen,
-                    "flutter-nested-card-container",
-                    file_path,
-                    "decorative Container nested inside decorative Container".to_string(),
-                    i + 1,
-                );
-            }
-        }
-
-        depth += line_text.chars().filter(|c| *c == '(').count() as i32;
-        depth -= line_text.chars().filter(|c| *c == ')').count() as i32;
-        depth = depth.max(0);
     }
 
     findings
@@ -431,5 +606,93 @@ Widget build(BuildContext context) {
     #[test]
     fn good_fixture_stays_clean() {
         assert!(detect_dart(GOOD, "/app/lib/good.dart").is_empty());
+    }
+
+    #[test]
+    fn comments_and_strings_do_not_create_findings() {
+        let source = r#"
+// GestureDetector(onTap: () {})
+final sample = 'Container(decoration: BoxDecoration(borderRadius: BorderRadius.circular(60)))';
+"#;
+        assert!(detect_dart(source, "/app/lib/sample.dart").is_empty());
+    }
+
+    #[test]
+    fn large_radius_outside_a_surface_is_not_flagged() {
+        let source = r#"
+final clip = ClipRRect(
+  borderRadius: BorderRadius.circular(40),
+  child: const SizedBox(width: 80, height: 80),
+);
+"#;
+        let findings = detect_dart(source, "/app/lib/avatar.dart");
+        assert!(!findings
+            .iter()
+            .any(|f| f.antipattern == "flutter-over-rounded-card"));
+    }
+
+    #[test]
+    fn distant_semantics_wrapper_protects_custom_action() {
+        let source = r#"
+return Semantics(
+  button: true,
+  label: 'Open details',
+  child: Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(
+      children: [
+        const Text('Details'),
+        const SizedBox(height: 24),
+        InkWell(
+          onTap: onTap,
+          child: const Icon(Icons.open_in_new),
+        ),
+      ],
+    ),
+  ),
+);
+"#;
+        let findings = detect_dart(source, "/app/lib/action.dart");
+        assert!(!findings
+            .iter()
+            .any(|f| f.antipattern == "flutter-missing-semantics-action"));
+    }
+
+    #[test]
+    fn theme_data_text_styles_are_not_counted_as_local_scale() {
+        let source = r#"
+final theme = ThemeData(
+  textTheme: const TextTheme(
+    displayLarge: TextStyle(fontSize: 48),
+    headlineLarge: TextStyle(fontSize: 32),
+    titleLarge: TextStyle(fontSize: 22),
+    bodyLarge: TextStyle(fontSize: 16),
+  ),
+);
+"#;
+        let findings = detect_dart(source, "/app/lib/theme.dart");
+        assert!(!findings
+            .iter()
+            .any(|f| f.antipattern == "flutter-hardcoded-text-style"));
+    }
+
+    #[test]
+    fn decorative_nested_surfaces_are_structurally_detected() {
+        let source = r#"
+return Container(
+  decoration: const BoxDecoration(color: Colors.white),
+  child: Padding(
+    padding: const EdgeInsets.all(8),
+    child: Container(
+      decoration: const BoxDecoration(color: Colors.blue),
+      child: const Text('Nested'),
+    ),
+  ),
+);
+"#;
+        let findings = detect_dart(source, "/app/lib/nested.dart");
+        assert!(findings
+            .iter()
+            .any(|f| f.antipattern == "flutter-nested-card-container"));
     }
 }
