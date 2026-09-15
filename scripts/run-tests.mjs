@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DEFAULT_SUITES, OPT_IN_SUITES, SUITES, expandSuites } from './test-suites.mjs';
 import { createGroupShutdown, trackChildExit } from './lib/process-group.mjs';
 import {
@@ -18,6 +18,7 @@ import {
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const NODE_TEST_COMPAT_REGISTER = path.join(REPO_ROOT, 'tests', 'register-node-test-compat.mjs');
+const NODE_TEST_COMPAT_IMPORT = pathToFileURL(NODE_TEST_COMPAT_REGISTER).href;
 
 // Global wall-clock backstop for any one command. Even with per-test timeouts
 // and client-side network deadlines in place, a wedged tool or an orphaned
@@ -87,8 +88,11 @@ async function main() {
 
 async function runCommand(command, suiteName) {
   const runId = makeRunId(REPO_ROOT);
+  const inheritedNodeOptions = String(process.env.NODE_OPTIONS || '').trim();
+  const compatNodeOption = `--import=${NODE_TEST_COMPAT_IMPORT}`;
   const env = {
     ...process.env,
+    NODE_OPTIONS: [inheritedNodeOptions, compatNodeOption].filter(Boolean).join(' '),
     [RUN_ID_ENV]: runId,
     // The hash is what matching uses; the path rides along for a human reading
     // `ps -E` output and is never matched on.
@@ -98,14 +102,13 @@ async function runCommand(command, suiteName) {
   };
   const wallClockMs = command.wallClockMs ?? DEFAULT_WALL_CLOCK_MS;
 
-  if (command.runner === 'bun') {
-    // `test-suites.mjs` still carries the historical label while the catalog is
-    // migrated. Operationally these files now run entirely under node:test;
-    // the loader only maps their remaining `bun:test` imports to the local
-    // compatibility layer. No Bun process is started here.
-    await runNodeTests(command.files, command, { env, wallClockMs, compat: true });
-  } else if (command.runner === 'node') {
-    await runNodeTests(command.files, command, { env, wallClockMs, compat: false });
+  if (command.runner === 'bun' || command.runner === 'node-compat' || command.runner === 'node') {
+    // `bun` remains accepted as a legacy catalog label while the metadata is
+    // migrated, but every suite executes through node:test. The loader maps
+    // remaining bun:test imports and legacy browser imports to repository-local
+    // Node/puppeteer-core compatibility modules; no Bun or Playwright process is
+    // started by this runner.
+    await runNodeTests(command.files, command, { env, wallClockMs });
   } else {
     throw new Error(`Unsupported test runner "${command.runner}"`);
   }
@@ -113,13 +116,15 @@ async function runCommand(command, suiteName) {
   await assertNoLeakedServers(runId, suiteName);
 }
 
-async function runNodeTests(files, command, { env, wallClockMs, compat }) {
+async function runNodeTests(files, command, { env, wallClockMs }) {
   // One invocation for the whole file list: node --test runs each file in its
   // own child process regardless, so isolation is unchanged, but the
   // runner-per-file spawn overhead is gone and files execute concurrently.
-  const nodeArgs = [];
-  if (compat) nodeArgs.push(`--import=${NODE_TEST_COMPAT_REGISTER}`);
-  nodeArgs.push('--test', `--test-concurrency=${command.concurrency ?? 4}`);
+  const nodeArgs = [
+    `--import=${NODE_TEST_COMPAT_IMPORT}`,
+    '--test',
+    `--test-concurrency=${command.concurrency ?? 4}`,
+  ];
   if (command.timeoutMs) nodeArgs.push(`--test-timeout=${command.timeoutMs}`);
   if (command.forceExit) nodeArgs.push('--test-force-exit');
   nodeArgs.push(...files);
