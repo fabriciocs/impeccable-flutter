@@ -129,7 +129,7 @@ function executedUpdateCommands(trace) {
       .filter((segment) => segment && !/^(?:#|echo\b|printf\b)/.test(segment)),
   );
   return executableSegments.filter((segment) =>
-    /^(?:(?:npx|bunx|pnpx)\s+)?(?:impeccable|skills)\s+update\b/.test(segment),
+    /^(?:(?:npx|pnpx)\s+)?(?:impeccable|skills)\s+update\b/.test(segment),
   );
 }
 
