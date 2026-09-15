@@ -10,15 +10,22 @@ import {
   matchesSuiteTriggers,
   suiteFiles,
 } from '../scripts/test-suites.mjs';
+import { toolingRuntimeFindings } from './tooling-runtime-gate.mjs';
 
 describe('test suite registry', () => {
   it('separates protocol checkpoints from opt-in browser-backed completion', () => {
     assert.deepEqual(suiteFiles(['skill-behavior']), ['tests/skill-behavior/scenarios.test.mjs']);
     assert.ok(OPT_IN_SUITES.includes('skill-workflow'));
-    assert.equal(SUITES['skill-workflow'].needsPlaywright, true);
+    assert.equal(SUITES['skill-workflow'].needsBrowser, true);
     assert.ok(suiteFiles(['skill-workflow']).includes('tests/skill-workflow/full-build.test.mjs'));
     assert.equal(DEFAULT_SUITES.includes('skill-workflow'), false);
   });
+
+  it('keeps active tooling on Node/npm + puppeteer-core', () => {
+    const findings = toolingRuntimeFindings();
+    assert.deepEqual(findings, [], findings.join('\n'));
+  });
+
   it('assigns every test file to a default or opt-in suite', () => {
     const allDiscovered = findTestFiles();
     const allRegistered = new Set(suiteFiles([...DEFAULT_SUITES, ...OPT_IN_SUITES]));
@@ -46,9 +53,6 @@ describe('test suite registry', () => {
   });
 
   it('selects every suite when one of its own test files changes', () => {
-    // Change-based CI (ci-test-plan.mjs) picks suites via matchesSuiteTriggers.
-    // A test file whose edits select no suite, or only a suite that does not
-    // run it, is a silent CI gap; the generated own-file triggers close it.
     for (const [name, suite] of Object.entries(SUITES)) {
       for (const file of suiteFiles([name])) {
         assert.equal(

@@ -38,7 +38,7 @@ let playwright;
 let browser;
 
 before(async () => {
-  playwright = await import('playwright');
+  playwright = await import('./lib/browser-driver.mjs');
   browser = await playwright.chromium.launch({ headless: true });
 });
 

@@ -2,7 +2,7 @@
  * Locate the impeccable engine binary for tests that drive verbs end to end.
  *
  * Order: $IMPECCABLE_BIN, then skill/scripts/bin/<os>-<arch>/impeccable[.exe]
- * (what `bun run fetch:engine` writes), then target/release/impeccable[.exe]
+ * (what `npm run fetch:engine` writes), then target/release/impeccable[.exe]
  * (what `cargo build --release -p impeccable` writes, so a local source build
  * is picked up without any extra step). Returns null when none exists so a
  * suite can skip cleanly instead of failing on a machine without the engine.
@@ -33,7 +33,7 @@ export function findEngineBinary() {
 }
 
 export const ENGINE_MISSING_MESSAGE =
-  'engine binary not found: run `cargo build --release -p impeccable` or `bun run fetch:engine`, or set IMPECCABLE_BIN';
+  'engine binary not found: run `cargo build --release -p impeccable` or `npm run fetch:engine`, or set IMPECCABLE_BIN';
 
 /** Environment the launcher would export for the binary when run from this repo's skill dir. */
 export function engineEnv(bin, extra = {}) {

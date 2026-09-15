@@ -14,12 +14,10 @@ export const OPT_IN_SUITES = [
 
 const COMMON_INFRA_PATTERNS = [
   /^package\.json$/,
-  /^bun\.lock$/,
+  /^package-lock\.json$/,
   /^scripts\/run-tests\.mjs$/,
   /^scripts\/test-suites\.mjs$/,
   /^scripts\/ci-test-plan\.mjs$/,
-  /^scripts\/lib\/(live-server-processes|process-group|test-orphan-reaper)\.mjs$/,
-  /^tests\/lib\/live-servers\.mjs$/,
   /^scripts\/lib\/(live-server-processes|process-group|test-orphan-reaper)\.mjs$/,
   /^tests\/lib\/live-servers\.mjs$/,
   /^\.github\/workflows\/ci\.yml$/,
@@ -40,7 +38,7 @@ export const SUITES = {
     ],
     commands: [
       {
-        runner: 'bun',
+        runner: 'node-compat',
         files: [
           'tests/build.test.js',
           'tests/lib/provider-blocks.test.js',
@@ -59,12 +57,6 @@ export const SUITES = {
       },
       {
         runner: 'node',
-        // A finite per-test cap so an async hang is cancelled and reported
-        // rather than left running with `--test-timeout` unset (Infinity).
-        // Note: this timer lives in the event loop, so it cannot interrupt a
-        // test blocked in a synchronous spawnSync; the runner's wall-clock
-        // group-kill covers that case. The slowest core test is ~11s, so 180s
-        // is safe.
         timeoutMs: 180000,
         files: [
           'tests/ci-test-plan.test.mjs',
@@ -88,9 +80,8 @@ export const SUITES = {
     ],
   },
   // The verbs live in the engine binary; this repo pins its behavior with the
-  // oracle goldens (tests/oracle) and drives its live-mode verbs over the
-  // framework fixtures. Both skip when no binary is present (bun run
-  // fetch:engine, or IMPECCABLE_BIN).
+  // oracle goldens and drives live-mode verbs over framework fixtures. Both
+  // skip when no binary is present (npm run fetch:engine, or IMPECCABLE_BIN).
   oracle: {
     description: 'Oracle corpus replay against the engine binary; skips without a binary.',
     triggers: [
@@ -101,13 +92,7 @@ export const SUITES = {
       /^tests\/lib\/engine-bin\.mjs$/,
       /^skill\/(reference\/|scripts\/)/,
     ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 900000,
-        files: ['tests/oracle.test.mjs'],
-      },
-    ],
+    commands: [{ runner: 'node', timeoutMs: 900000, files: ['tests/oracle.test.mjs'] }],
   },
   detector: {
     description: 'Extension packaging checks (the rule logic itself is covered by the crate tests and the oracle).',
@@ -116,25 +101,13 @@ export const SUITES = {
       /^extension\/(background|content|detector|devtools|offscreen|popup|shared|manifest\.json)/,
       /^scripts\/build-extension\.js$/,
       /^browser-bundle\//,
-      // Everything `cargo xtask bundle` reads: the rules and the registry
-      // rows (core, foundation), the wasm module (wasm), the assembly and the
-      // registry serialization (bundle), and the task itself (xtask). Leaving
-      // one out means a PR that changes what the bundle emits never rebuilds
-      // it, and the tracked-output check in ci.yml then compares a committed
-      // artifact against an untouched tree and passes on stale bytes.
       /^crates\/(bundle|core|foundation|wasm|xtask)\//,
-      // The tracked artifacts themselves, so a hand-edit is regenerated over.
       /^crates\/live\/assets\//,
     ],
-    commands: [
-      {
-        runner: 'node',
-        files: ['tests/extension-build.test.mjs'],
-      },
-    ],
+    commands: [{ runner: 'node', files: ['tests/extension-build.test.mjs'] }],
   },
   live: {
-    description: 'Live-mode reference contract checks plus the live-e2e helper units (agent output, CLI options, LLM agent parsing, steer loop against the binary); the live verbs themselves are covered by the oracle and framework suites.',
+    description: 'Live-mode reference contract checks plus live E2E helper units; live verbs are covered by oracle and framework suites.',
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^skill\/(reference\/live\.md|scripts\/live-browser)/,
@@ -143,24 +116,22 @@ export const SUITES = {
       /^tests\/live-agent-target\.test\.mjs$/,
       /^tests\/live-boot-fastpath\.test\.mjs$/,
     ],
-    commands: [
-      {
-        runner: 'node',
-        files: [
-          'tests/live-reference.test.mjs',
-          'tests/live-agent-target.test.mjs',
-          'tests/live-boot-fastpath.test.mjs',
-          'tests/live-browser-ignores.test.mjs',
-          'tests/live-browser-source.test.mjs',
-          'tests/live-e2e-agent-output.test.mjs',
-          'tests/live-e2e-cli-options.test.mjs',
-          'tests/live-e2e-llm-agent.test.mjs',
-          'tests/live-e2e-steer-agent.test.mjs',
-          'tests/live-e2e/agent-insert.test.mjs',
-          'tests/live-server-leak.test.mjs',
-        ],
-      },
-    ],
+    commands: [{
+      runner: 'node',
+      files: [
+        'tests/live-reference.test.mjs',
+        'tests/live-agent-target.test.mjs',
+        'tests/live-boot-fastpath.test.mjs',
+        'tests/live-browser-ignores.test.mjs',
+        'tests/live-browser-source.test.mjs',
+        'tests/live-e2e-agent-output.test.mjs',
+        'tests/live-e2e-cli-options.test.mjs',
+        'tests/live-e2e-llm-agent.test.mjs',
+        'tests/live-e2e-steer-agent.test.mjs',
+        'tests/live-e2e/agent-insert.test.mjs',
+        'tests/live-server-leak.test.mjs',
+      ],
+    }],
   },
   framework: {
     description: 'Framework fixture coverage for live injection, CSP detection, and wrapping through the engine binary; skips without a binary.',
@@ -171,16 +142,8 @@ export const SUITES = {
       /^tests\/framework-fixtures\.test\.mjs$/,
       /^tests\/lib\/engine-bin\.mjs$/,
     ],
-    commands: [
-      {
-        runner: 'node',
-        files: ['tests/framework-fixtures.test.mjs'],
-      },
-    ],
+    commands: [{ runner: 'node', files: ['tests/framework-fixtures.test.mjs'] }],
   },
-  // `impeccable install/update/check` and their remote smoke moved into the
-  // engine binary and its repo; the deterministic coverage here is the oracle
-  // corpus. The lane name stays so ci.yml and package.json keep resolving.
   'cli-remote-e2e': {
     description: 'Remote CLI install/update smoke (moved to the engine repo; no tests here).',
     optIn: true,
@@ -188,7 +151,7 @@ export const SUITES = {
     commands: [],
   },
   'plugin-e2e': {
-    description: 'Install the committed ./plugin subtree into a real (sandboxed) Claude Code and assert skills, agents, and hooks all load. Skips when the claude CLI is not on PATH.',
+    description: 'Install the committed ./plugin subtree into a real sandboxed Claude Code and assert skills, agents, and hooks load.',
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^plugin\//,
@@ -197,19 +160,12 @@ export const SUITES = {
       /^scripts\/lib\/validate-plugin-manifest\.js$/,
       /^tests\/plugin-e2e\.test\.mjs$/,
     ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 300000,
-        forceExit: true,
-        files: ['tests/plugin-e2e.test.mjs'],
-      },
-    ],
+    commands: [{ runner: 'node', timeoutMs: 300000, forceExit: true, files: ['tests/plugin-e2e.test.mjs'] }],
   },
   'live-e2e': {
-    description: 'Full Playwright live-mode click-to-accept sweep across runtime framework fixtures.',
+    description: 'Full puppeteer-core live-mode click-to-accept sweep across runtime framework fixtures.',
     optIn: true,
-    needsPlaywright: true,
+    needsBrowser: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^skill\/scripts\/live-browser/,
@@ -217,59 +173,34 @@ export const SUITES = {
       /^tests\/framework-fixtures/,
       /^tests\/live-e2e(\.test\.mjs|\/)/,
     ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 600000,
-        forceExit: true,
-        files: ['tests/live-e2e.test.mjs'],
-      },
-    ],
+    commands: [{ runner: 'node', timeoutMs: 600000, forceExit: true, files: ['tests/live-e2e.test.mjs'] }],
   },
   'new-work-e2e': {
-    description: 'Playwright smoke sweep of the new-work concept/serve-question decision page plus the offline fake image generator.',
+    description: 'puppeteer-core smoke sweep of the new-work decision page plus the offline fake image generator.',
     optIn: true,
-    needsPlaywright: true,
+    needsBrowser: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^ENGINE_VERSION$/,
       /^tests\/new-work-e2e(\.test\.mjs|\/)/,
     ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 600000,
-        forceExit: true,
-        files: ['tests/new-work-e2e.test.mjs'],
-      },
-    ],
+    commands: [{ runner: 'node', timeoutMs: 600000, forceExit: true, files: ['tests/new-work-e2e.test.mjs'] }],
   },
   'live-e2e-accept-cleanup': {
     description: 'Provider-backed post-accept cleanup regression.',
     optIn: true,
-    needsPlaywright: true,
+    needsBrowser: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^ENGINE_VERSION$/,
       /^tests\/live-e2e-accept-cleanup-regression\.test\.mjs$/,
       /^tests\/live-e2e\//,
     ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 600000,
-        files: ['tests/live-e2e-accept-cleanup-regression.test.mjs'],
-      },
-    ],
+    commands: [{ runner: 'node', timeoutMs: 600000, files: ['tests/live-e2e-accept-cleanup-regression.test.mjs'] }],
   },
   'live-e2e-agent': {
     description: 'Focused insert-mode fake-agent helper tests.',
-    commands: [
-      {
-        runner: 'node',
-        files: ['tests/live-e2e/agent-insert.test.mjs'],
-      },
-    ],
+    commands: [{ runner: 'node', files: ['tests/live-e2e/agent-insert.test.mjs'] }],
   },
   'skill-behavior': {
     description: 'LLM-backed protocol checkpoints, not full builds.',
@@ -281,17 +212,12 @@ export const SUITES = {
       /^ENGINE_VERSION$/,
       /^tests\/skill-behavior\//,
     ],
-    commands: [{
-      runner: 'node',
-      timeoutMs: 240000,
-      wallClockMs: 1_800_000,
-      files: ['tests/skill-behavior/scenarios.test.mjs'],
-    }],
+    commands: [{ runner: 'node', timeoutMs: 240000, wallClockMs: 1_800_000, files: ['tests/skill-behavior/scenarios.test.mjs'] }],
   },
   'skill-workflow': {
-    description: 'Explicitly opt-in completed workflows with a preflighted browser.',
+    description: 'Explicitly opt-in completed workflows with a preflighted host browser.',
     optIn: true,
-    needsPlaywright: true,
+    needsBrowser: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^skill\//,
@@ -301,35 +227,21 @@ export const SUITES = {
     ],
     commands: [
       { runner: 'node', files: ['tests/skill-workflow-browser.test.mjs'] },
-      {
-        runner: 'node', timeoutMs: 240000, wallClockMs: 600000,
-        files: ['tests/skill-workflow/finish-handoff.test.mjs'],
-      },
-      {
-        runner: 'node',
-        timeoutMs: 900000,
-        wallClockMs: 3_600_000,
-        files: ['tests/skill-workflow/full-build.test.mjs'],
-      },
+      { runner: 'node', timeoutMs: 240000, wallClockMs: 600000, files: ['tests/skill-workflow/finish-handoff.test.mjs'] },
+      { runner: 'node', timeoutMs: 900000, wallClockMs: 3_600_000, files: ['tests/skill-workflow/full-build.test.mjs'] },
     ],
   },
   'live-svelte-adapter-deepseek': {
     description: 'DeepSeek-backed Svelte adapter browser sweep.',
     optIn: true,
-    needsPlaywright: true,
+    needsBrowser: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^ENGINE_VERSION$/,
       /^tests\/framework-fixtures\/vite8-sveltekit-stateful\//,
       /^tests\/live-svelte-adapter-deepseek\.test\.mjs$/,
     ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 1200000,
-        files: ['tests/live-svelte-adapter-deepseek.test.mjs'],
-      },
-    ],
+    commands: [{ runner: 'node', timeoutMs: 1200000, files: ['tests/live-svelte-adapter-deepseek.test.mjs'] }],
   },
 };
 
@@ -337,13 +249,6 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Every suite must select itself when one of its own test files changes.
-// Generated from the files lists so the hand-written trigger patterns above
-// only carry source paths and fixture directories; before this, four test
-// files were registered in a suite that change-based CI could never select
-// by editing them (serve-question, ci-test-plan, both validate-plugin-*),
-// and tests/lib/detector-bundle.test.js triggered core while running in
-// detector. The meta-test in tests/test-suites.test.mjs pins this invariant.
 for (const suite of Object.values(SUITES)) {
   const ownFiles = suite.commands.flatMap((command) => command.files);
   suite.triggers = [
@@ -374,9 +279,7 @@ export function suiteFiles(suiteNames) {
   for (const name of suiteNames) {
     const suite = SUITES[name];
     if (!suite) throw new Error(`Unknown test suite "${name}"`);
-    for (const command of suite.commands) {
-      files.push(...command.files);
-    }
+    for (const command of suite.commands) files.push(...command.files);
   }
   return files;
 }

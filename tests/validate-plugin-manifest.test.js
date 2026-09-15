@@ -12,12 +12,13 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import {
   collectPluginManifestFindings,
   KNOWN_LOADER_KEYS,
 } from '../scripts/lib/validate-plugin-manifest.js';
 
-const REPO_ROOT = path.resolve(import.meta.dir, '..');
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const GOOD_MANIFEST = {
   name: 'impeccable',
@@ -187,7 +188,7 @@ describe('committed plugin subtree', () => {
   // The test that was missing when the agents key shipped: validate the real
   // artifact the marketplace installs, not a fixture. If this fails, the
   // committed ./plugin subtree carries a manifest shape Claude Code will not
-  // load; regenerate it with `bun run build:release` after fixing build.js.
+  // load; regenerate it with `npm run build:release` after fixing build.js.
   test('the shipped manifest honors the verified loader contract', () => {
     expect(collectPluginManifestFindings(REPO_ROOT)).toEqual([]);
   });

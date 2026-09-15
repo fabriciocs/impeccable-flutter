@@ -10,7 +10,7 @@
 // artifacts.
 //
 // Refuses on a dirty tree, an unpushed HEAD, or a missing changelog entry.
-// For the skill component, also reruns `bun run build:release` and refuses if the
+// For the skill component, also reruns `npm run build:release` and refuses if the
 // regenerated harness directories drift from what is committed.
 
 import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
@@ -34,7 +34,7 @@ const COMPONENTS = {
     // The skill's launcher and `impeccable install` dead-end without the engine
     // release for the pinned ENGINE_VERSION. Enforce release order (D4).
     engineGated: true,
-    buildCmd: 'bun run build:release',
+    buildCmd: 'npm run build:release',
     artifacts: ['dist/universal.zip'],
     postReleaseHint: null,
     tweetHeader: (v) => `Impeccable v${v} is out.`,
@@ -63,7 +63,7 @@ const COMPONENTS = {
     // The extension ships a vendored WASM detector and does not exec the engine
     // binary, so it is exempt from the engine release-order guard.
     engineGated: false,
-    buildCmd: 'bun run build:extension',
+    buildCmd: 'npm run build:extension',
     artifacts: ['dist/extension.zip', 'dist/extension-firefox.zip'],
     postReleaseHint:
       'Upload `dist/extension.zip` to the Chrome Web Store dashboard, and `dist/extension-firefox.zip` to addons.mozilla.org (AMO), to publish.',
@@ -148,7 +148,7 @@ if (cfg.engineGated && process.env.IMPECCABLE_SKIP_ENGINE_CHECK !== '1') {
     for (const m of result.missing) console.error(`    · ${m.what}\n        ${m.url}`);
     fail(
       `Refusing to release ${cfg.label} ${version}: engine v${engineVersion} is not fully published.\n` +
-      `  Publish engine v${engineVersion} (bun run release:engine) AND the five @impeccable/cli-<os>-<arch>\n` +
+      `  Publish engine v${engineVersion} (npm run release:engine) AND the five @impeccable/cli-<os>-<arch>\n` +
       '  npm platform packages first. Ordering: engine release → platform packages → skill/CLI release.\n' +
       '  See CLAUDE.md "Releases" and the engine repo docs/REVIEW-TRIAGE.md D4.'
     );
@@ -319,7 +319,7 @@ if (component === 'skill' && !dryRun) {
     } else {
       console.log(`\n⚠ impeccable.style still serves ${served}, not ${version}.`);
       console.log('  npx impeccable update users get the OLD version until the site redeploys:');
-      console.log('  cd ../impeccable-site && bun run deploy');
+      console.log('  cd ../impeccable-site && npm run deploy');
     }
   } catch {
     console.log('⚠ could not reach impeccable.style/api/version to verify the served bundle');
@@ -460,5 +460,5 @@ async function releaseEngine() {
   console.log(`\n✓ Engine ${version} tagged as ${tag}`);
   console.log(`\n→ Next step: watch the release-engine workflow (${REPO_URL}/actions/workflows/release-engine.yml).`);
   console.log(`  It publishes the five binaries + .sha256 as ${REPO_URL}/releases/tag/${tag}.`);
-  console.log('  Then publish the five @impeccable/cli-<os>-<arch> npm platform packages with `bun run release:platform-packages`, then release the CLI/skill.');
+  console.log('  Then publish the five @impeccable/cli-<os>-<arch> npm platform packages with `npm run release:platform-packages`, then release the CLI/skill.');
 }

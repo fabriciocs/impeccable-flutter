@@ -2,13 +2,13 @@
 
 A cheap, deterministic smoke suite for the interactive parts of new-work: the
 serve-question decision page and the offline image generator. It is kept out of
-`bun run test` and runs on demand.
+`npm run test` and runs on demand.
 
 ```bash
-bun run test:new-work-e2e
+npm run test:new-work-e2e
 ```
 
-One-time setup: `npx playwright install chromium` (the suite drives a real
+One-time setup: `set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge browser when auto-discovery is unavailable` (the suite drives a real
 Chromium so the page runs its own JS, exactly as a user's tab would).
 
 ## What it covers
@@ -35,7 +35,7 @@ cases) and is not repeated here.
 
 Both verbs run through the engine binary (`impeccable serve-question`,
 `impeccable generate-image`) resolved by `tests/lib/engine-bin.mjs`:
-`IMPECCABLE_BIN` or `skill/scripts/bin/<os>-<arch>/` (`bun run fetch:engine`).
+`IMPECCABLE_BIN` or `skill/scripts/bin/<os>-<arch>/` (`npm run fetch:engine`).
 
 ## Pieces
 

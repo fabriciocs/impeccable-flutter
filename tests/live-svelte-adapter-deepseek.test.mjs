@@ -60,7 +60,7 @@ if (!process.env.DEEPSEEK_API_KEY) {
 
 describe('Svelte live adapter DeepSeek browser sweep', () => {
   before(async () => {
-    playwright = await import('playwright');
+    playwright = await import('./lib/browser-driver.mjs');
     browser = await playwright.chromium.launch({ headless: true });
   });
 

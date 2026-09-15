@@ -2,9 +2,9 @@ name: release-engine
 # Builds the engine binary for every supported target and publishes them, with
 # sha256 sidecars, as the GitHub Release `engine-v<X>` on this repo. That
 # release is what the launcher (skill/scripts/impeccable), the npm shim
-# (cli/bin/cli.js), `impeccable install`, and `bun run fetch:engine` download.
+# (cli/bin/cli.js), `impeccable install`, and `npm run fetch:engine` download.
 #
-# Trigger: `bun run release:engine` (scripts/release.mjs) verifies
+# Trigger: `npm run release:engine` (scripts/release.mjs) verifies
 # ENGINE_VERSION, the npm platform-package pins, and a clean tree, then
 # pushes the tag. Third-party actions are pinned to commit SHAs so a
 # moved tag cannot swap the code this workflow runs.

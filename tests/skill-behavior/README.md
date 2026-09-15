@@ -12,17 +12,17 @@ contract.
 ## Run
 
 ```bash
-bun run test:skill-behavior
-IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1 bun run test:skill-behavior   # dump per-scenario traces
-IMPECCABLE_SKILL_BEHAVIOR_MODELS=claude-sonnet-5 bun run test:skill-behavior   # scope to one model
-IMPECCABLE_SKILL_BEHAVIOR_EFFORT=xhigh bun run test:skill-behavior             # OpenAI reasoning effort (default: high)
+npm run test:skill-behavior
+IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1 npm run test:skill-behavior   # dump per-scenario traces
+IMPECCABLE_SKILL_BEHAVIOR_MODELS=claude-sonnet-5 npm run test:skill-behavior   # scope to one model
+IMPECCABLE_SKILL_BEHAVIOR_EFFORT=xhigh npm run test:skill-behavior             # OpenAI reasoning effort (default: high)
 ```
 
 Requires `.env` at repo root with at least one of `ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY`, `GOOGLE_CLOUD_API_KEY`, `DEEPSEEK_API_KEY`. Providers without a key are
 skipped, not failed.
 
-Also requires the engine binary (`bun run fetch:engine`, or `IMPECCABLE_BIN`).
+Also requires the engine binary (`npm run fetch:engine`, or `IMPECCABLE_BIN`).
 The staged skill dir ships the launcher (`scripts/impeccable`); the harness
 exports `IMPECCABLE_BIN` into every bash call the agent makes, so the launcher
 resolves the binary in the generated fixture without a download. Without a
@@ -56,9 +56,9 @@ assistant to surface the update, not merely receive its loader directive.
 Full workflows moved to `tests/skill-workflow/full-build.test.mjs`:
 
 ```bash
-bun run fetch:engine
-bunx playwright install chromium
-bun run test:skill-workflow
+npm run fetch:engine
+npx set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge browser when auto-discovery is unavailable
+npm run test:skill-workflow
 ```
 
 This separately billed suite defaults to Claude only; use

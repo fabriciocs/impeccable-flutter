@@ -4,8 +4,8 @@
  * index of the Google Fonts catalog that `font-match.mjs --rank` uses as its
  * candidate generator.
  *
- * This is a RELEASE-TIME step, not part of `bun run build`. It needs the
- * network (Google Fonts metadata + CSS) and Playwright Chromium, renders every
+ * This is a RELEASE-TIME step, not part of `npm run build`. It needs the
+ * network (Google Fonts metadata + CSS) and puppeteer-core with host Chrome/Chromium/Edge, renders every
  * latin family at up to three weights (300 / 400 / 700, whichever the family
  * ships) at two cap heights (48px and 14px), fingerprints each render with
  * skill/scripts/lib/font-fingerprint.mjs, and packs the vectors with
@@ -20,17 +20,17 @@
  *                                     [--metadata path]   # cached fonts.google.com/metadata/fonts JSON
  *                                     [--resume]          # keep entries already in --out
  *
- * One-time setup: `npx playwright install chromium`.
+ * One-time setup: `set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge browser when auto-discovery is unavailable`.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
+import puppeteer from 'puppeteer-core';
 import { fingerprint } from '../skill/scripts/lib/font-fingerprint.mjs';
 import { decodePng } from '../skill/scripts/lib/png.mjs';
 import { INDEX_PATH, INDEX_SIZES, INDEX_FEATURES, CATEGORIES, packVector } from '../skill/scripts/lib/font-index.mjs';
+import { resolveBrowserExecutable } from './lib/browser-executable.mjs';
 
-const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Text every catalog face is rendered with; covers caps, x-height letters, ascenders, descenders, digits. */
@@ -122,9 +122,16 @@ async function main() {
     }
   }
   const renderSize = async (e, sz) => (typeof sz === 'string' && sz.endsWith('c') ? fingerprintFace(page, e, parseInt(sz, 10), INDEX_TEXT_CAPS) : fingerprintFace(page, e, sz, INDEX_TEXT));
-  const pw = require('playwright');
-  const browser = await pw.chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 3000, height: 300 }, deviceScaleFactor: 1 });
+  const browserArgs = typeof process.getuid === 'function' && process.getuid() === 0
+    ? ['--no-sandbox', '--disable-setuid-sandbox']
+    : [];
+  const browser = await puppeteer.launch({
+    headless: true,
+    executablePath: resolveBrowserExecutable(),
+    args: browserArgs,
+  });
+  const page = await browser.newPage();
+  await page.setViewport({ width: 3000, height: 300, deviceScaleFactor: 1 });
   const results = [...done.values()].filter((e) => !e.missing);
   const failures = [];
   const byFam = new Map();

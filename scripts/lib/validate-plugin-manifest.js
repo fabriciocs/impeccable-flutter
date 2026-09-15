@@ -153,7 +153,7 @@ export function collectPluginManifestFindings(rootDir) {
         relPath: `plugin/agents/${shippedFile}`,
         reason:
           'missing from the plugin subtree; auto-discovery relies on the shipped ' +
-          `file, so skill/agents/${sourceFile} would never load. Run \`bun run build:release\``,
+          `file, so skill/agents/${sourceFile} would never load. Run \`npm run build:release\``,
       });
     }
   }

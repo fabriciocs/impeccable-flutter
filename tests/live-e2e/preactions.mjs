@@ -11,7 +11,7 @@ import { installLiveQueryHelpers, waitForCycling } from './ui.mjs';
 const PICK_TOGGLE = '#impeccable-live-pick-toggle';
 
 /**
- * @param {import('playwright').Page} page
+ * @param {import('puppeteer-core').Page} page
  * @param {Array<{ type: string, selector?: string, path?: string }>} actions
  */
 export async function runPreActions(page, actions) {
@@ -78,7 +78,7 @@ async function clickPickToggle(page, selector) {
  * Wait for CYCLING with the same recovery paths live mode expects:
  * retrace preActions when conditional UI closed, reload when LLM + HMR lag.
  *
- * @param {import('playwright').Page} page
+ * @param {import('puppeteer-core').Page} page
  * @param {number} expectedCount
  * @param {{ agentMode?: string, preActions?: object[], log?: (msg: string) => void }} opts
  */

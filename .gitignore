@@ -1,10 +1,6 @@
 # Dependencies
 node_modules/
 
-# npm lockfile (project uses bun.lock; npm may regenerate this as a side
-# effect of npm subprocesses, but it should not be tracked)
-package-lock.json
-
 # Generated files
 dist/
 build/
@@ -114,13 +110,13 @@ talks/
 # Generated sub-pages (legacy, now replaced by Astro content collections)
 
 # World design-system cards live in R2 (functions/worlds/cards); only the
-# manifest is tracked. Generate: bun run world-cards; upload: world-cards:publish.
+# manifest is tracked. Generate: npm run world-cards; upload: world-cards:publish.
 
 # Build artifacts written to site/public/ so Astro copies them to build/
 
 # Note: harness skill directories (.claude/skills/, .cursor/skills/, etc.)
 # are intentionally tracked. npx skills reads them from this repo at install
-# time, and they enable clean submodule use. Run `bun run build` to refresh
+# time, and they enable clean submodule use. Run `npm run build` to refresh
 # them after editing skill/.
 #
 # Codex CLI consumes `.agents/skills/`; the asset-producer subagent ships
@@ -138,6 +134,6 @@ tmp/
 .ablate-stage/
 
 # Local scratch from iterating on the OG card (weight comparisons, intermediate
-# PNGs, the old card backup). The canonical generator is `bun run og-image`
+# PNGs, the old card backup). The canonical generator is `npm run og-image`
 # (scripts/generate-og-image.js); this dir is throwaway and safe to delete.
 .og-build/

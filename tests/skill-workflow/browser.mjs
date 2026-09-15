@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { sourceHash as hashSources } from './source-hash.mjs';
-import { chromium } from 'playwright';
+import { chromium } from '../lib/browser-driver.mjs';
 import { tool } from 'ai';
 import { z } from 'zod';
 
@@ -35,7 +35,7 @@ export async function prepareBrowser(root) {
   try {
     browser = await chromium.launch({ headless: true, timeout: 15000 });
   } catch (error) {
-    throw new Error('Workflow browser preflight failed. Run `bunx playwright install chromium` before billed tests.', { cause: error });
+    throw new Error('Workflow browser preflight failed. Run `npx set PUPPETEER_EXECUTABLE_PATH to an installed Chrome/Chromium/Edge browser when auto-discovery is unavailable` before billed tests.', { cause: error });
   }
   const blockedRequests = [];
   const server = http.createServer((req, res) => {
