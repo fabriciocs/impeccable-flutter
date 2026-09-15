@@ -1,111 +1,128 @@
-# Impeccable Flutter — plano de arquivos para implementação
+# Impeccable Flutter — plano validado de arquivos para implementação
 
 Data da análise: 2026-09-15
 
-Repositório: `fabriciocs/impeccable-flutter`
-Branch: `main`
-HEAD analisado: `8c64a09e311706bb3fb439bc34f02f9848d75b5d`
+Repositório: `fabriciocs/impeccable-flutter`  
+Branch: `main`  
+HEAD validado antes desta revisão documental: `e6b2ee7553fb8431cace79549da0859d4321167a`  
+Baseline funcional Flutter analisada: `8c64a09e311706bb3fb439bc34f02f9848d75b5d`  
 Upstream comparado: `pbakaus/impeccable:main`
 
-## 1. Estado após pull/sincronização
+## 1. Resultado do pull/sincronização
 
-O estado remoto do `main` foi atualizado e comparado com o upstream.
+Foi lido o `main` remoto mais recente e comparado com `pbakaus/impeccable:main`.
 
-- `behind_by: 0`: não há commits pendentes do upstream para trazer.
-- `ahead_by: 3`: o fork possui três commits próprios sobre o upstream.
-- `099ba8b587dc9e61c05e099b1d75c155894bff26`: integração inicial Flutter/Dart.
-- `2d05d68450c0a798f5078777bf49b004f9357300`: regeneração dos outputs dos providers.
-- `8c64a09e311706bb3fb439bc34f02f9848d75b5d`: documentação dos ajustes Flutter restantes.
+No momento da validação, antes deste commit documental:
 
-Não é necessário merge/rebase do upstream neste momento. O trabalho restante é completar a integração Flutter no código existente.
+- `behind_by: 0`: não há commits pendentes do upstream para incorporar;
+- `ahead_by: 4`: o fork possui quatro commits próprios sobre o upstream;
+- `099ba8b587dc9e61c05e099b1d75c155894bff26`: integração inicial Flutter/Dart;
+- `2d05d68450c0a798f5078777bf49b004f9357300`: regeneração dos outputs dos providers;
+- `8c64a09e311706bb3fb439bc34f02f9848d75b5d`: documentação/ajustes Flutter anteriores;
+- `e6b2ee7553fb8431cace79549da0859d4321167a`: criação da primeira versão deste plano.
 
-## 2. Diagnóstico
+Este próprio ajuste documental cria mais um commit do fork, portanto a contagem `ahead_by` pode aumentar sem representar nova alteração funcional.
 
-A integração atual já adiciona detecção Dart, reconhecimento básico de projeto Flutter, referência Flutter da skill e indicação Flutter Web na extensão. Porém, o produto ainda permanece Web/Node-first em pontos centrais.
+**Conclusão:** não é necessário merge/rebase do upstream neste momento. O trabalho pendente é completar e endurecer a integração Flutter/Dart no código do fork.
 
-Os principais gaps são:
+## 2. Evidências verificadas no código atual
 
-1. `impeccable context` ainda não trata `pubspec.yaml`, `lib/`, `.dart`, Melos e Dart workspaces como sinais nativos de projeto Flutter.
-2. `crates/detect/src/cli.rs` ainda usa `detect_framework_config()` sem conectar `detect_flutter_project()` ao fluxo real do comando.
-3. a identificação Flutter em `file_system_flutter.rs` é heurística e precisa distinguir app, package, plugin, target Web e Dart puro.
-4. o detector Dart usa heurísticas regex/context-window que precisam de melhor cobertura contra falsos positivos e negativos.
-5. a documentação pública ainda não descreve Flutter como capacidade de primeira classe.
-6. os arquivos gerados dos providers devem continuar derivados das fontes canônicas; não devem ser editados manualmente.
+A análise não foi baseada apenas em nomes de arquivos. Foram conferidos pontos funcionais do código e da documentação atual.
 
-## 3. Arquivos que DEVEM SER AJUSTADOS
+1. `crates/detect/src/cli.rs` ainda conduz a detecção de diretório pelo fluxo `detect_framework_config()` e a detecção Flutter não está integrada de forma completa ao caminho principal da CLI.
+2. `crates/detect/src/file_system_flutter.rs` possui detector Flutter separado, mas a identificação do projeto depende de heurísticas de conteúdo/arquivos e precisa de uma fonte de verdade compartilhada e mais estruturada.
+3. `crates/context/src/context_cli.rs` trata `ios`, `android` e `adaptive` como `native` e desabilita o fallback do detector nesses casos. Isso conflita com Flutter: um app Flutter Android/iOS continua tendo Dart source que deve poder ser analisado.
+4. O `RESOLVED_CONTEXT` atual expõe `platform`, mas não expõe um sinal separado e determinístico de tecnologia/framework; Flutter não deve ser inferido apenas de `platform`.
+5. `README.md` continua apresentando o produto principalmente como detector de frontend genérico/Web e não documenta Flutter/Dart como capacidade de primeira classe.
+6. `skill/reference/flutter.md` recomenda `flutter format --set-exit-if-changed .`; a formatação deve usar a ferramenta Dart compatível com o SDK do projeto, por exemplo `dart format --output=none --set-exit-if-changed .` quando suportado.
+7. A integração inicial já adicionou regras Dart, detector Flutter, fixtures/testes, referência Flutter e mensagens de Flutter Web. O correto é completar essa arquitetura, não criar uma implementação paralela.
+8. Outputs dos providers são derivados de fontes canônicas e não devem ser corrigidos manualmente.
+
+## 3. Resumo de ações
+
+| Grupo | Decisão |
+|---|---|
+| Ajustar | Contexto, CLI de detecção, detector Flutter/Dart, testes/fixtures, skill, README, extensão e eventualmente CI/configuração. |
+| Criar | Um helper Flutter compartilhado em `crates/common/src/flutter.rs` e fixtures adicionais somente quando necessárias. |
+| Excluir | Nenhum arquivo inteiro neste estágio. Remover apenas lógica duplicada/obsoleta dentro dos arquivos ajustados quando substituída pelo helper compartilhado. |
+| Não editar diretamente | Outputs gerados de providers/distribuição. Alterar as fontes canônicas e regenerar. |
+
+## 4. Arquivos que DEVEM SER AJUSTADOS
 
 ### P0 — integração funcional
 
-| Arquivo | Ação necessária |
-|---|---|
-| `crates/context/src/context.rs` | Tornar discovery e contexto Flutter-aware: reconhecer `pubspec.yaml`, `lib/`, `.dart`, `melos.yaml`, Dart workspace; incluir `lib/main.dart`/entry point como target; detectar implementação visual Dart/Flutter; adicionar sinal separado de tecnologia/framework sem alterar a semântica de `Platform`; cobrir app simples e monorepo. |
-| `crates/context/src/context_cli.rs` | Propagar `framework`/`technology` no contexto resolvido; não desabilitar detector source quando `Platform` for Android/iOS/adaptive e a tecnologia for Flutter; tornar mensagens de fallback neutras para Web/Flutter; adicionar testes de hook/detector para Flutter nativo. |
-| `crates/detect/src/cli.rs` | Importar e usar `detect_flutter_project()` no fluxo de diretórios; atualizar `USAGE`, `Detection modes` e exemplos para `.dart`, `lib/` e Flutter Web; explicar source scan versus browser scan; nunca assumir uma porta Flutter fixa; adicionar testes da CLI. |
-| `crates/detect/src/file_system_flutter.rs` | Substituir identificação textual frágil por leitura estruturada/segura do `pubspec.yaml`; distinguir Dart puro, Flutter app, package e plugin; substituir `source_only` por sinais claros como `has_dart_source` e `has_web_target`; aceitar entry points diferentes de `lib/main.dart`; ampliar testes positivos e negativos. |
-| `crates/detect/src/detect_text_flutter.rs` | Preservar integralmente o fallback Web; garantir `rule_pack` e inline ignores em Dart; definir comportamento explícito para Dart via stdin sem filename; testar scan multiarquivo para evitar registro/resultado duplicado. |
-| `crates/detect/src/detect_dart.rs` | Endurecer as oito regras Flutter; reduzir dependência de janelas fixas de linhas; melhorar semântica de `GestureDetector`/`InkWell`, containers/cards, ThemeData/TextTheme/ThemeExtension, Material/Cupertino; manter IDs e contratos estáveis; adicionar casos limite por regra. |
-| `crates/detect/tests/flutter_dart.rs` | Cobrir cada regra individualmente, inline ignores, `rule_pack`, Dart puro, Flutter app/package/plugin/Web, diretórios mistos Web+Dart, caminhos Windows/POSIX e múltiplos arquivos. |
-| `crates/detect/tests/fixtures/flutter/bad.dart` | Manter apenas casos agregados estáveis que comprovem violações inequívocas; mover casos ambíguos para testes unitários específicos. |
-| `crates/detect/tests/fixtures/flutter/good.dart` | Adicionar Material 3/ColorScheme, ThemeExtension, Semantics, LayoutBuilder/MediaQuery, containers estruturais e estilos locais legítimos que não podem gerar falso positivo. |
+| Arquivo | Ajuste necessário | Critério de conclusão |
+|---|---|---|
+| `crates/common/src/lib.rs` | Exportar o novo helper compartilhado, por exemplo `pub mod flutter;`, caso `crates/common/src/flutter.rs` seja criado. | `context` e `detect` conseguem consumir a mesma identificação Flutter sem dependência circular. |
+| `crates/context/src/context.rs` | Tornar discovery/contexto Flutter-aware: reconhecer `pubspec.yaml`, `lib/`, `.dart`, `melos.yaml` e workspace Dart; localizar entry points; considerar Dart/Flutter implementação visual; adicionar tecnologia/framework separado de `Platform`; cobrir app simples e monorepo. | Projeto Flutter é resolvido corretamente mesmo sem Web/Node e Dart puro não vira Flutter por engano. |
+| `crates/context/src/context_cli.rs` | Propagar `framework`/`technology` no contexto resolvido; não desabilitar detector source apenas porque `platform` é Android/iOS/adaptive quando tecnologia é Flutter; tornar mensagens Web-específicas neutras quando necessário; adicionar testes. | Flutter nativo continua recebendo instrução de source scan Dart; Web existente não regride. |
+| `crates/detect/src/cli.rs` | Integrar `detect_flutter_project()` ou o helper comum ao fluxo real de diretórios; atualizar usage/examples para `.dart`, `lib/` e Flutter Web; separar source scan de browser scan; nunca assumir porta Flutter fixa. | `impeccable detect lib/` e diretórios Flutter chegam deterministicamente ao scanner Dart. |
+| `crates/detect/src/file_system_flutter.rs` | Consumir a identificação compartilhada; abandonar parsing textual frágil do `pubspec.yaml`; distinguir Dart puro, Flutter app, package, plugin e target Web; aceitar entry points além de `lib/main.dart`; substituir flags ambíguas por sinais claros. | Classificação é estável para app/package/plugin/Web e rejeita Dart puro. |
+| `crates/detect/src/detect_text_flutter.rs` | Preservar fallback Web; garantir `rule_pack`, ignores inline e comportamento de Dart via stdin; impedir duplicação de registro/resultado em scan multiarquivo. | Contratos existentes permanecem compatíveis e testes cobrem stdin/múltiplos arquivos/ignores. |
+| `crates/detect/src/detect_dart.rs` | Endurecer as regras Flutter atuais; reduzir dependência de janelas fixas; melhorar tratamento de `GestureDetector`/`InkWell`, cards/containers, ThemeData/TextTheme/ThemeExtension e Material/Cupertino sem alterar IDs públicos das regras. | Cada regra tem positivo, negativo e casos limite com falsos positivos controlados. |
+| `crates/detect/tests/flutter_dart.rs` | Expandir cobertura para cada regra, inline ignore, `rule_pack`, Dart puro, app/package/plugin/Web, diretórios mistos, caminhos Windows/POSIX e múltiplos arquivos. | Cobertura protege integração funcional e compatibilidade de plataforma. |
+| `crates/detect/tests/fixtures/flutter/bad.dart` | Manter violações agregadas inequívocas; mover casos ambíguos para testes unitários específicos. | Fixture não depende de heurística frágil. |
+| `crates/detect/tests/fixtures/flutter/good.dart` | Adicionar Material 3/ColorScheme, ThemeExtension, Semantics, LayoutBuilder/MediaQuery, estruturas legítimas de container e estilos locais válidos. | Casos Flutter modernos válidos não geram falsos positivos. |
 
-### P1 — documentação, skill e UX
+### P1 — skill, documentação e UX
 
-| Arquivo | Ação necessária |
-|---|---|
-| `skill/reference/flutter.md` | Corrigir comando de format para Dart válido; documentar app/package/plugin/monorepo; diferenciar `flutter analyze` e `dart analyze`; cobrir widget/golden/integration tests; diferenciar Material, Cupertino e design system customizado; reforçar que browser live não substitui testes Flutter. |
-| `skill/SKILL.src.md` | Usar o sinal determinístico de tecnologia/framework produzido pelo contexto para carregar `reference/flutter.md`; garantir que Flutter nativo continue usando detector Dart; preservar roteamento para audit/adapt/polish/optimize. |
-| `README.md` | Apresentar Flutter/Dart como capacidade oficial; documentar `impeccable detect lib/`; explicar source scan Dart versus rendered scan Flutter Web; revisar a contagem de regras; incluir exemplo Flutter e esclarecer que mobile/desktop não depende de servidor Web. |
-| `extension/popup/popup.js` | Isolar a detecção Flutter Web em função testável; evitar dependência exclusiva de internals `flt-*`; reconhecer bootstraps atuais; manter detecção best-effort apenas para orientação; atualizar estado ao navegar/trocar de aba quando aplicável. |
-| `extension/popup/popup.html` | Ajustar o texto somente se a CLI ganhar comandos/flags adicionais; manter explícita a diferença entre scan do output renderizado e scan de `lib/`. |
-| `extension/popup/popup.css` | Nenhuma mudança funcional obrigatória; alterar apenas se o novo estado/hint exigir acessibilidade ou layout. Não criar aparência de erro exclusiva para Flutter. |
-| `.github/workflows/ci.yml` | Garantir que mudanças em código/fixtures Flutter sempre executem Rust tests e validações relevantes; adicionar paths apenas se novos testes forem criados fora de `crates/`. |
-| `.github/workflows/sync-generated-output.yml` | Manter o fluxo de geração como autoridade para providers; revisar somente se novos arquivos canônicos Flutter não forem propagados atualmente. |
+| Arquivo | Ajuste necessário | Critério de conclusão |
+|---|---|---|
+| `skill/reference/flutter.md` | Corrigir a orientação de formatação; documentar app/package/plugin/monorepo; diferenciar `flutter analyze`/`dart analyze`; cobrir widget/golden/integration tests; diferenciar Material, Cupertino e design system customizado; explicar que browser live não substitui validação Flutter. | Comandos documentados são executáveis e refletem o comportamento real do produto. |
+| `skill/SKILL.src.md` | Carregar `reference/flutter.md` por sinal determinístico de framework/tecnologia; manter Flutter nativo no detector Dart; preservar roteamento dos comandos existentes. | Skill não depende de inferência de plataforma para reconhecer Flutter. |
+| `README.md` | Declarar Flutter/Dart como capacidade oficial; documentar `impeccable detect lib/`; separar scan source Dart e scan renderizado Flutter Web; revisar contagem de regras; incluir exemplo Flutter e esclarecer mobile/desktop sem servidor Web. | Usuário consegue instalar e usar suporte Flutter sem conhecimento implícito do fork. |
+| `extension/popup/popup.js` | Isolar detecção Flutter Web em função testável; evitar dependência exclusiva de internals `flt-*`; reconhecer bootstraps atuais; manter detecção best-effort e atualizar estado na navegação/troca de aba quando aplicável. | Falha de heurística da extensão não altera a classificação do projeto source. |
+| `extension/popup/popup.html` | Atualizar textos somente se CLI/estado visual exigir; manter explícita a diferença entre output renderizado e `lib/`. | UX não sugere que browser scan analisa Dart. |
+| `extension/popup/popup.css` | Alterar apenas se novos estados/hints precisarem de layout/acessibilidade. | Nenhuma alteração cosmética desnecessária. |
+| `.github/workflows/ci.yml` | Garantir que mudanças Flutter/Dart executem testes Rust e validações relevantes; rever `paths` apenas se testes novos ficarem fora de `crates/`. | PRs com regressão Flutter não passam CI. |
+| `.github/workflows/sync-generated-output.yml` | Revisar somente se novas fontes canônicas Flutter não forem propagadas pelo build de release. | Providers gerados permanecem sincronizados automaticamente. |
 
 ### P2 — ajustes condicionais
 
-| Arquivo | Condição |
+| Arquivo | Alterar somente se |
 |---|---|
-| `crates/context/Cargo.toml` | Alterar somente se a solução escolhida exigir nova dependência. Evitar criar dependência de `impeccable-context` para `impeccable-detect`. |
-| `crates/detect/Cargo.toml` | Alterar somente se houver nova dependência compartilhada necessária para parsing/detecção Flutter. |
-| `Cargo.toml` | Alterar apenas se for criado um novo crate; não é necessário se a lógica compartilhada entrar em `impeccable-common`, que já é dependência dos crates `context` e `detect`. |
+| `crates/context/Cargo.toml` | O parsing/identificação compartilhado exigir dependência que ainda não esteja disponível. Não criar dependência `context -> detect`. |
+| `crates/detect/Cargo.toml` | Houver nova dependência necessária para consumir/parsing compartilhado. |
+| `Cargo.toml` | For realmente criado um novo crate. Não é necessário se a lógica compartilhada ficar em `impeccable-common`. |
 
-## 4. Arquivos que DEVEM SER CRIADOS
+## 5. Arquivos que DEVEM SER CRIADOS
 
-### 4.1 Recomendado: helper Flutter compartilhado
+### 5.1 `crates/common/src/flutter.rs`
 
-Criar `crates/common/src/flutter.rs`.
+**Recomendado.** Deve ser a fonte única de identificação de projeto Dart/Flutter utilizada por `context` e `detect`.
 
-Responsabilidades propostas:
+Responsabilidades:
 
-- ler sinais mínimos de `pubspec.yaml` sem acoplar `context` a `detect`;
-- informar `is_flutter`, `is_dart`, tipo do pacote quando determinável, `has_web_target`, `has_dart_source`, possíveis entry points e sinais de workspace;
-- manter parsing determinístico e sem inferir porta/URL;
+- interpretar os sinais relevantes do `pubspec.yaml` de forma estruturada/segura;
+- indicar `is_dart` e `is_flutter` separadamente;
+- identificar app/package/plugin quando determinável;
+- indicar `has_web_target`, `has_dart_source` e possíveis entry points;
+- reconhecer sinais de workspace Dart/Melos quando aplicável;
+- não inferir porta ou URL;
 - não conter regras de design/anti-patterns;
-- poder ser usado igualmente por `impeccable-context` e `impeccable-detect`.
+- evitar duplicação de parsing entre crates.
 
-A criação exige também ajustar `crates/common/src/lib.rs` para exportar o módulo.
+Se a arquitetura existente oferecer um módulo compartilhado melhor, o caminho pode ser adaptado, mas deve existir **uma única fonte de verdade**, não duas implementações divergentes.
 
-Se for possível centralizar esta lógica em um módulo compartilhado já existente sem aumentar acoplamento, o novo arquivo pode ser dispensado. A regra arquitetural é ter uma única fonte para identificação Flutter, não duplicar parsing entre `context` e `detect`.
+### 5.2 Testes do helper Flutter
 
-### 4.2 Testes do helper compartilhado
+Preferir testes unitários no próprio `crates/common/src/flutter.rs`. Criar arquivo de teste separado somente se isso seguir melhor o padrão do crate.
 
-Preferência: testes unitários dentro de `crates/common/src/flutter.rs` ou, se o padrão do crate justificar, criar um teste dedicado equivalente.
-
-Cobrir pelo menos:
+Cobrir no mínimo:
 
 - Dart puro;
 - Flutter app;
 - Flutter package;
 - Flutter plugin;
 - Flutter Web;
-- texto incidental `flutter:` que não representa SDK Flutter;
-- pubspec com comentários e formatações diferentes;
+- ocorrência incidental de `flutter:` que não declara SDK Flutter;
+- comentários/formatações diferentes no pubspec;
 - workspace Dart/Flutter;
 - Melos quando aplicável.
 
-### 4.3 Fixtures de projeto
+### 5.3 Fixtures adicionais de projeto
 
-Criar fixtures de diretório somente se os testes atuais não conseguirem expressar de forma legível os cenários. Preferir fixtures pequenas para:
+Criar somente quando deixarem os testes de integração mais claros. Candidatas:
 
 - `flutter_app/`;
 - `flutter_package/`;
@@ -114,28 +131,27 @@ Criar fixtures de diretório somente se os testes atuais não conseguirem expres
 - `dart_only/`;
 - `melos_workspace/`.
 
-Não criar fixtures duplicadas quando um teste temporário/unitário simples for suficiente.
+Evitar fixtures grandes ou duplicadas quando `tempdir`/teste unitário expressar o cenário de forma suficiente.
 
-## 5. Arquivos que DEVEM SER EXCLUÍDOS
+## 6. Arquivos que DEVEM SER EXCLUÍDOS
 
-Neste estado, **nenhum arquivo de implementação deve ser excluído**.
+**Nenhum arquivo inteiro deve ser excluído no estado atual.**
 
-Também NÃO excluir:
+Não excluir:
 
 - `crates/detect/src/detect_text_flutter.rs`;
 - `crates/detect/src/file_system_flutter.rs`;
 - `crates/detect/src/detect_text.rs`;
 - `crates/detect/src/file_system.rs`;
+- `docs/FLUTTER-ADJUSTMENTS.md`;
 - outputs gerados dos providers;
 - referências Flutter geradas.
 
-Os wrappers Flutter atuais reduzem conflitos futuros com o upstream e devem permanecer até existir evidência arquitetural e testes suficientes para incorporar sua lógica diretamente nos arquivos upstream.
+Ao criar o helper comum, remover **somente trechos duplicados** de parsing/classificação que ele substituir dentro de `file_system_flutter.rs`, `context.rs` ou outros consumidores. Não remover wrappers inteiros antes de os testes demonstrarem que são dispensáveis.
 
-`docs/FLUTTER-ADJUSTMENTS.md` também não precisa ser excluído. Ele pode permanecer como análise anterior. Este documento deve ser usado como matriz operacional de arquivos para implementação.
+## 7. Arquivos GERADOS — não editar manualmente
 
-## 6. Arquivos GERADOS — não editar manualmente
-
-Não editar diretamente as cópias de `SKILL.md` e referências dentro de providers, incluindo famílias como:
+Não corrigir diretamente cópias de skill/referências em providers, incluindo famílias como:
 
 - `.agent/skills/impeccable/**`;
 - `.agents/skills/impeccable/**`;
@@ -149,54 +165,61 @@ Fontes canônicas a editar:
 
 - `skill/SKILL.src.md`;
 - `skill/reference/flutter.md`;
-- demais fontes sob `skill/` quando realmente necessárias.
+- demais fontes em `skill/` apenas quando necessário.
 
-Depois, executar o processo oficial de geração (`bun run build:release` ou workflow equivalente) e verificar o diff gerado.
+Depois das mudanças, executar o processo oficial de geração (`bun run build:release` ou workflow equivalente) e revisar o diff gerado.
 
-## 7. Ordem de implementação recomendada
+## 8. Ordem de implementação
 
-1. Criar/definir a identificação Flutter compartilhada em `crates/common`.
+1. Criar a identificação Flutter compartilhada em `crates/common/src/flutter.rs` e exportá-la em `crates/common/src/lib.rs`.
 2. Ajustar `crates/context/src/context.rs`.
-3. Ajustar `crates/context/src/context_cli.rs`.
+3. Ajustar `crates/context/src/context_cli.rs` e o contrato de `RESOLVED_CONTEXT`.
 4. Ajustar `crates/detect/src/file_system_flutter.rs` para consumir a mesma identificação.
 5. Conectar Flutter ao fluxo real em `crates/detect/src/cli.rs`.
 6. Endurecer `detect_text_flutter.rs` e `detect_dart.rs`.
-7. Expandir testes e fixtures do detector/contexto.
-8. Ajustar `skill/reference/flutter.md` e `skill/SKILL.src.md`.
-9. Ajustar `README.md`.
-10. Ajustar extensão Flutter Web.
-11. Revisar CI e geração de providers.
-12. Regenerar outputs.
-13. Executar suíte completa e revisar regressões Web.
+7. Expandir testes e fixtures de detector/contexto.
+8. Corrigir e ampliar `skill/reference/flutter.md`.
+9. Ajustar `skill/SKILL.src.md`.
+10. Atualizar `README.md`.
+11. Endurecer a detecção Flutter Web da extensão.
+12. Revisar CI e geração de providers.
+13. Regenerar outputs derivados.
+14. Executar suíte completa e revisar regressões Web.
 
-## 8. Validações obrigatórias
+## 9. Validações obrigatórias
 
 Antes de considerar a implementação concluída:
 
 - `cargo build --workspace --all-targets` deve passar;
 - `cargo test --workspace` deve passar;
-- testes específicos do detector Dart devem passar;
-- testes de contexto devem comprovar app simples e monorepo Flutter;
+- testes específicos de Dart/Flutter devem passar;
+- testes de contexto devem cobrir app Flutter simples e monorepo/workspace;
+- Dart puro não pode ser classificado como Flutter;
 - regressões Web existentes devem continuar verdes;
 - build/testes Node aplicáveis devem passar;
 - extensão deve continuar funcional em página não Flutter e Flutter Web;
 - `bun run build:release` deve regenerar providers sem drift manual;
-- `git diff` após regeneração deve conter somente saídas esperadas;
-- Dart puro não pode ser classificado como Flutter;
-- Flutter Android/iOS/adaptive deve manter detector source Dart habilitado;
+- `git diff` após regeneração deve conter apenas saídas esperadas;
+- Flutter Android/iOS/adaptive deve manter source scan Dart disponível;
+- Flutter mobile/desktop não pode depender de URL/porta;
 - Flutter Web deve poder usar source scan e browser scan como camadas complementares.
 
-## 9. Definition of Done
+## 10. Definition of Done
 
-A integração está concluída somente quando:
+A integração Flutter estará concluída somente quando:
 
-1. projeto Flutter é reconhecido deterministicamente por `context` e `detect` usando a mesma fonte de verdade;
-2. `lib/*.dart` conta como implementação visual;
-3. app/package/plugin/workspace são resolvidos corretamente;
+1. `context` e `detect` reconhecem Flutter deterministicamente pela mesma fonte de verdade;
+2. `lib/**/*.dart` pode ser reconhecido como implementação visual relevante;
+3. app/package/plugin/workspace são diferenciados quando necessário;
 4. Dart puro não gera falso reconhecimento Flutter;
-5. Flutter mobile/desktop funciona sem suposição de servidor ou porta;
-6. Flutter Web usa browser scan apenas quando uma URL real existe;
+5. Flutter Android/iOS/desktop funciona sem pressupor servidor ou porta;
+6. Flutter Web usa browser scan apenas quando uma URL real estiver disponível;
 7. regras Dart possuem casos positivos, negativos e casos limite;
-8. documentação e skill explicam o comportamento real;
-9. providers são regenerados exclusivamente pelas fontes canônicas;
-10. toda a suíte Web existente continua sem regressão.
+8. CLI realmente encaminha diretórios Flutter ao detector Dart;
+9. documentação e skill descrevem comandos e comportamento reais;
+10. providers são regenerados pelas fontes canônicas;
+11. toda a suíte Web anterior permanece sem regressão.
+
+## 11. Decisão arquitetural principal
+
+A próxima implementação não deve adicionar mais heurísticas isoladas em `context` e `detect`. O primeiro passo deve ser centralizar a identificação Dart/Flutter em `impeccable-common` e fazer os consumidores usarem o mesmo resultado. Isso resolve o maior risco atual: o mesmo projeto ser classificado de maneiras diferentes pela CLI, pelo contexto e pela skill.
