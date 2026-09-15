@@ -76,17 +76,41 @@ class LocatorAdapter {
   }
 
   async _handles() {
-    const handles = await this.page.raw.$$(this.selector);
-    const hasText = this.options?.hasText;
-    if (hasText == null) return handles;
-    const out = [];
-    for (const handle of handles) {
-      const text = await handle.evaluate((el) => el.textContent || '');
-      const matched = hasText instanceof RegExp ? hasText.test(text) : text.includes(String(hasText));
-      if (matched) out.push(handle);
+  let handles = await this.page.raw.$$(this.selector);
+  if (handles.length === 0) {
+    const list = await this.page.raw.evaluateHandle((selector) => {
+      const matches = [];
+      const roots = [document];
+      for (let i = 0; i < roots.length; i++) {
+        const root = roots[i];
+        for (const element of root.querySelectorAll(selector)) {
+          if (!matches.includes(element)) matches.push(element);
+        }
+        for (const element of root.querySelectorAll('*')) {
+          if (element.shadowRoot) roots.push(element.shadowRoot);
+        }
+      }
+      return matches;
+    }, this.selector);
+    const properties = await list.getProperties();
+    handles = [];
+    for (const [key, value] of properties) {
+      if (!/^\d+$/.test(key)) continue;
+      const element = value.asElement();
+      if (element) handles.push(element);
     }
-    return out;
+    await list.dispose();
   }
+  const hasText = this.options?.hasText;
+  if (hasText == null) return handles;
+  const out = [];
+  for (const handle of handles) {
+    const text = await handle.evaluate((el) => el.textContent || '');
+    const matched = hasText instanceof RegExp ? hasText.test(text) : text.includes(String(hasText));
+    if (matched) out.push(handle);
+  }
+  return out;
+}
 
   async _one(timeout = 5000) {
     const deadline = Date.now() + timeout;
@@ -198,6 +222,7 @@ class PageAdapter {
   reload(options) { return this.raw.reload(options); }
   close(options) { return this.raw.close(options); }
   screenshot(options) { return this.raw.screenshot(options); }
+  content() { return this.raw.content(); }
   setDefaultTimeout(timeout) { this.raw.setDefaultTimeout(timeout); }
   setViewportSize(viewport) { return this.raw.setViewport(viewport); }
   waitForNavigation(options) { return this.raw.waitForNavigation(options); }
