@@ -1,0 +1,222 @@
+name: Align Browser Compat Temp
+
+on:
+  push:
+    branches: [chore/node-npm-puppeteer-migration-20260915]
+    paths:
+      - '.github/workflows/align-browser-compat-temp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: chore/node-npm-puppeteer-migration-20260915
+          fetch-depth: 0
+          token: ${{ github.token }}
+      - name: Align locator compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tests/lib/browser-driver.mjs')
+          s = p.read_text()
+          start = s.index('class LocatorAdapter {')
+          end = s.index('\nclass PageAdapter {', start)
+          replacement = r'''function serializeTextMatcher(value) {
+  if (value == null) return null;
+  if (value instanceof RegExp) return { type: 'regex', source: value.source, flags: value.flags };
+  return { type: 'text', value: String(value) };
+}
+
+function installLocatorHelpers() {
+  if (window.__impeccablePuppeteerCompatFind) return;
+  const queryAll = (root, selector) => {
+    if (root === document && typeof window.__impeccableLiveQueryAll === 'function') {
+      return Array.from(window.__impeccableLiveQueryAll(selector) || []);
+    }
+    const results = [];
+    if (root?.querySelectorAll) results.push(...root.querySelectorAll(selector));
+    if (root?.shadowRoot?.querySelectorAll) results.push(...root.shadowRoot.querySelectorAll(selector));
+    return results;
+  };
+  const matchesText = (el, matcher) => {
+    if (!matcher) return true;
+    const text = el?.textContent || '';
+    if (matcher.type === 'regex') return new RegExp(matcher.source, matcher.flags).test(text);
+    return text.includes(matcher.value);
+  };
+  window.__impeccablePuppeteerCompatFind = (chain) => {
+    let roots = [document];
+    for (const part of chain) {
+      let matches = roots
+        .flatMap((root) => queryAll(root, part.selector))
+        .filter((el) => matchesText(el, part.hasText));
+      if (part.index != null) matches = matches[part.index] ? [matches[part.index]] : [];
+      else if (part.first) matches = matches.slice(0, 1);
+      roots = matches;
+      if (roots.length === 0) break;
+    }
+    return roots;
+  };
+  window.__impeccablePuppeteerCompatVisible = (el) => {
+    if (!el || !el.isConnected) return false;
+    const style = getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  };
+}
+
+class LocatorAdapter {
+  constructor(page, chain) {
+    this.page = page;
+    this.chain = chain;
+  }
+
+  first() {
+    const next = this.chain.map((part) => ({ ...part }));
+    next[next.length - 1] = { ...next[next.length - 1], first: true, index: null };
+    return new LocatorAdapter(this.page, next);
+  }
+
+  nth(index) {
+    const next = this.chain.map((part) => ({ ...part }));
+    next[next.length - 1] = { ...next[next.length - 1], first: false, index };
+    return new LocatorAdapter(this.page, next);
+  }
+
+  locator(selector, options = {}) {
+    return new LocatorAdapter(this.page, [...this.chain, { selector, options, first: false, index: null }]);
+  }
+
+  _serialized() {
+    return this.chain.map((part) => ({
+      selector: part.selector,
+      first: part.first === true,
+      index: part.index ?? null,
+      hasText: serializeTextMatcher(part.options?.hasText),
+    }));
+  }
+
+  async _handles() {
+    await this.page.raw.evaluate(installLocatorHelpers).catch(() => {});
+    const list = await this.page.raw.evaluateHandle(
+      (chain) => window.__impeccablePuppeteerCompatFind(chain),
+      this._serialized(),
+    );
+    const properties = await list.getProperties();
+    const handles = [];
+    for (const [key, value] of properties) {
+      if (!/^\d+$/.test(key)) continue;
+      const element = value.asElement();
+      if (element) handles.push(element);
+    }
+    await list.dispose();
+    return handles;
+  }
+
+  async _one(timeout = 5000) {
+    const deadline = Date.now() + timeout;
+    do {
+      const handles = await this._handles();
+      if (handles[0]) return handles[0];
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    } while (Date.now() < deadline);
+    throw new Error(`Element not found: ${this.chain.map((part) => part.selector).join(' >> ')}`);
+  }
+
+  async count() { return (await this._handles()).length; }
+
+  async click(options = {}) {
+    const handle = await this._one(options.timeout ?? 5000);
+    await handle.click({ button: options.button, clickCount: options.clickCount, delay: options.delay });
+  }
+
+  async evaluate(fn, arg) {
+    const handle = await this._one();
+    return handle.evaluate(fn, arg);
+  }
+
+  async fill(value, options = {}) {
+    const handle = await this._one(options.timeout ?? 5000);
+    return new ElementAdapter(this.page, handle).fill(value);
+  }
+
+  async type(value, options = {}) {
+    const handle = await this._one(options.timeout ?? 5000);
+    return new ElementAdapter(this.page, handle).type(value, options);
+  }
+
+  async press(key) {
+    const handle = await this._one();
+    return new ElementAdapter(this.page, handle).press(key);
+  }
+
+  async innerText() {
+    const handle = await this._one();
+    return new ElementAdapter(this.page, handle).innerText();
+  }
+
+  async textContent() {
+    const handle = await this._one();
+    return new ElementAdapter(this.page, handle).textContent();
+  }
+
+  async getAttribute(name) {
+    const handle = await this._one();
+    return new ElementAdapter(this.page, handle).getAttribute(name);
+  }
+
+  async isVisible() {
+    const handles = await this._handles();
+    if (!handles[0]) return false;
+    return handles[0].evaluate((el) => window.__impeccablePuppeteerCompatVisible(el));
+  }
+
+  async waitFor({ state = 'visible', timeout = 5000 } = {}) {
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      const handles = await this._handles();
+      const selected = handles[0] || null;
+      const exists = Boolean(selected);
+      const visible = selected
+        ? await selected.evaluate((el) => window.__impeccablePuppeteerCompatVisible(el))
+        : false;
+      if ((state === 'attached' && exists)
+          || (state === 'detached' && !exists)
+          || (state === 'visible' && visible)
+          || (state === 'hidden' && (!exists || !visible))) return;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error(`Timed out waiting for ${state}: ${this.chain.map((part) => part.selector).join(' >> ')}`);
+  }
+}
+'''
+          s = s[:start] + replacement + s[end:]
+          s = s.replace(
+            "    this.keyboard = raw.keyboard;\n  }",
+            "    this.keyboard = raw.keyboard;\n    raw.evaluateOnNewDocument(installLocatorHelpers).catch(() => {});\n    raw.evaluate(installLocatorHelpers).catch(() => {});\n  }",
+          )
+          s = s.replace(
+            "  waitForSelector(selector, options) { return this.raw.waitForSelector(selector, options); }\n  click(selector, options) { return this.raw.click(selector, options); }\n",
+            "  async waitForSelector(selector, options = {}) {\n    const state = options.state || (options.visible ? 'visible' : 'attached');\n    const locator = this.locator(selector).first();\n    await locator.waitFor({ state, timeout: options.timeout ?? 5000 });\n    if (state === 'hidden' || state === 'detached') return null;\n    return locator._one(100);\n  }\n  click(selector, options) { return this.locator(selector).click(options); }\n",
+          )
+          s = s.replace(
+            "  locator(selector, options) { return new LocatorAdapter(this, selector, options); }",
+            "  locator(selector, options = {}) { return new LocatorAdapter(this, [{ selector, options, first: false, index: null }]); }",
+          )
+          p.write_text(s)
+          PY
+      - name: Commit compatibility alignment
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/lib/browser-driver.mjs
+          git commit -m 'fix: align puppeteer locator compatibility with live UI'
+          git push origin HEAD:chore/node-npm-puppeteer-migration-20260915
