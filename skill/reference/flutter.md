@@ -96,15 +96,15 @@ Prefer purposeful Flutter-native motion (`Animated*`, explicit animations, trans
 
 ## Validation
 
-After editing Flutter UI, run the strongest gates available in the project. Prefer:
+After editing Flutter UI, run the strongest gates available in the project. Prefer the SDK-compatible commands used by the repository. A typical sequence is:
 
 ```text
-flutter format --set-exit-if-changed .
+dart format --output=none --set-exit-if-changed .
 flutter analyze
 flutter test
 ```
 
-Use the project's actual formatting command if it differs. Run targeted widget/golden tests before a full suite when that is the repository convention. If integration tests are available for the changed flow, run them too.
+If the installed Dart SDK does not support those formatter flags, run `dart format .` and verify that it produces no unintended diff. For a Dart-only package use `dart analyze` and `dart test` when those are the project-native commands. Run targeted widget/golden tests before a full suite when that is the repository convention. If integration tests are available for the changed flow, run them too.
 
 For visual validation, use the real Flutter app or current goldens/screenshots. Validate the device classes the product actually ships. On Flutter Web, rendered browser inspection is supplemental to Dart-source validation, not a replacement for it.
 
