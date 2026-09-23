@@ -27,7 +27,8 @@
 //! `crates/wasm`, or `browser-bundle/`, and commit the refreshed assets.
 //!
 //! `cargo xtask bundle --check` rebuilds and fails when either tracked asset
-//! differs (CI staleness gate).
+//! differs (CI staleness gate). `--check --extension-only` performs the same
+//! staleness check and, when clean, writes only the gitignored extension pieces.
 
 use std::path::{Path, PathBuf};
 
@@ -114,7 +115,7 @@ fn bundle(check: bool, pure: bool, extension_only: bool) {
             std::fs::write(path, bytes).expect("write tracked asset");
         }
     }
-    // extension/detector/: gitignored, vendored by `bun run build:extension`.
+    // extension/detector/: gitignored, vendored by `npm run build:extension`.
     let ext_dir = root.join("extension/detector");
     std::fs::create_dir_all(&ext_dir).expect("extension dir");
     std::fs::write(ext_dir.join("snapshot.js"), &ext.snapshot_js).expect("write snapshot.js");
