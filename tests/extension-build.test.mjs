@@ -54,3 +54,19 @@ describe('extension badge colors', () => {
     assert.doesNotMatch(source, /#d6336c/, 'the magenta badge is retired');
   });
 });
+
+describe('extension build mutation boundary', () => {
+  it('checks tracked assets while generating only extension-local detector pieces', () => {
+    const buildScript = readFileSync(path.join(ROOT, 'scripts/build-extension.js'), 'utf-8');
+    const xtask = readFileSync(path.join(ROOT, 'crates/xtask/src/main.rs'), 'utf-8');
+
+    assert.match(buildScript, /cargo xtask bundle --check --extension-only/);
+    assert.match(xtask, /--extension-only/);
+    assert.match(xtask, /if !extension_only \{/);
+  });
+
+  it('does not rewrite the engine version for CRLF-only checkout differences', () => {
+    const buildScript = readFileSync(path.join(ROOT, 'scripts/build.js'), 'utf-8');
+    assert.match(buildScript, /current\.replace\(\/\\r\\n\/g, '\\n'\)/);
+  });
+});
