@@ -97,9 +97,9 @@ jobs:
       - name: Lint Firefox extension (web-ext)
         if: needs.changes.outputs.detector == 'true'
         run: npx --yes web-ext@10 lint --source-dir dist/extension-firefox
-      - name: Verify the tracked rule registry is current
+      - name: Verify tracked generated sources stay clean
         if: needs.changes.outputs.detector == 'true'
-        run: git diff --exit-code -- crates/live/assets/antipatterns.json
+        run: git diff --exit-code -- crates/live/assets/antipatterns.json crates/live/assets/detect-antipatterns-browser.js skill/scripts/VERSION
       - name: Verify generated tracked outputs
         run: git diff --exit-code -- .agents .claude .cursor .dsh .gemini .github/skills plugin extension/detector
       - name: Upload build artifacts
