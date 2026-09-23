@@ -5,7 +5,8 @@
  *
  * 1. Builds the five generated detector pieces (core.js, core_bg.wasm,
  *    snapshot.js, overlay.js, antipatterns.json) into extension/detector/ by
- *    running `cargo xtask bundle`, which compiles the rule core to
+ *    running `cargo xtask bundle --check --extension-only`, which first verifies
+ *    tracked live assets are current without rewriting them, then compiles the rule core to
  *    WebAssembly and concatenates it with the page JS in browser-bundle/.
  * 2. Checks that every path the manifest and the service worker reference
  *    exists in extension/.
@@ -48,8 +49,8 @@ const havePieces = DETECTOR_PIECES.every((piece) => fs.existsSync(path.join(DETE
 if (process.env.IMPECCABLE_EXTENSION_SKIP_BUNDLE === '1' && havePieces) {
   console.log('Skipping `cargo xtask bundle` (IMPECCABLE_EXTENSION_SKIP_BUNDLE=1, extension/detector/ is complete)');
 } else {
-  console.log('Building extension/detector/ with `cargo xtask bundle` ...');
-  execSync('cargo xtask bundle', { cwd: ROOT, stdio: 'inherit' });
+  console.log('Building extension/detector/ with `cargo xtask bundle --check --extension-only` ...');
+  execSync('cargo xtask bundle --check --extension-only', { cwd: ROOT, stdio: 'inherit' });
 }
 
 const missingPieces = DETECTOR_PIECES.filter((piece) => !fs.existsSync(path.join(DETECTOR_DIR, piece)));
