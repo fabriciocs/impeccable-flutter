@@ -20,7 +20,7 @@
 //!      `snapshot.js` (content-script snapshot producer), `overlay.js`
 //!      (content-script overlay UI), `core.js` + `core_bg.wasm`
 //!      (offscreen-document core), `antipatterns.json`. That directory is
-//!      gitignored and vendored by `bun run build:extension`, which runs
+//!      gitignored and vendored by `npm run build:extension`, which runs
 //!      this task.
 //!
 //! Run this after touching `crates/core`, `crates/foundation`,
@@ -44,9 +44,10 @@ fn main() {
         Some("bundle") => bundle(
             args.iter().any(|a| a == "--check"),
             args.iter().any(|a| a == "--pure"),
+            args.iter().any(|a| a == "--extension-only"),
         ),
         _ => {
-            eprintln!("usage: cargo xtask bundle [--check] [--pure]");
+            eprintln!("usage: cargo xtask bundle [--check] [--pure] [--extension-only]");
             std::process::exit(2);
         }
     }
@@ -58,7 +59,7 @@ fn die(message: String) -> ! {
 }
 
 /// `pure`: also compile the `pure_*` exports (feature `pure-exports`).
-fn bundle(check: bool, pure: bool) {
+fn bundle(check: bool, pure: bool, extension_only: bool) {
     let root = root();
     let out_dir = root.join("target/wasm-bundle");
     let cargo_args: &[&str] = if pure { &["--features", "pure-exports"] } else { &[] };
@@ -100,14 +101,18 @@ fn bundle(check: bool, pure: bool) {
             eprintln!("run `cargo xtask bundle` and commit crates/live/assets");
             std::process::exit(1);
         }
-        return;
+        if !extension_only {
+            return;
+        }
     }
-    std::fs::create_dir_all(&dist).expect("dist dir");
-    std::fs::write(dist.join("detect-antipatterns-browser.js"), &out).expect("write bundle");
-    std::fs::write(dist.join("antipatterns.json"), &registry).expect("write registry");
-    std::fs::create_dir_all(&assets).expect("live assets dir");
-    for (path, bytes) in &tracked {
-        std::fs::write(path, bytes).expect("write tracked asset");
+    if !extension_only {
+        std::fs::create_dir_all(&dist).expect("dist dir");
+        std::fs::write(dist.join("detect-antipatterns-browser.js"), &out).expect("write bundle");
+        std::fs::write(dist.join("antipatterns.json"), &registry).expect("write registry");
+        std::fs::create_dir_all(&assets).expect("live assets dir");
+        for (path, bytes) in &tracked {
+            std::fs::write(path, bytes).expect("write tracked asset");
+        }
     }
     // extension/detector/: gitignored, vendored by `bun run build:extension`.
     let ext_dir = root.join("extension/detector");
