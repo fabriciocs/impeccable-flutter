@@ -5,10 +5,17 @@ import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
 
 const SOURCE = readFileSync(join(process.cwd(), 'skill/scripts/live-browser.js'), 'utf-8');
+const LIVE_E2E_UI_SOURCE = readFileSync(join(process.cwd(), 'tests/live-e2e/ui.mjs'), 'utf-8');
 const PENDING_DOCK_POSITION_SOURCE = SOURCE.match(/function positionPendingDock\(\) \{[\s\S]*?\n  \}/)?.[0] || '';
 const CAPTURE_AND_EMIT_SOURCE = SOURCE.match(/async function captureAndEmit\([\s\S]*?\n  \}/)?.[0] || '';
 
 describe('live-browser source contracts', () => {
+  it('uses DOM-dispatched chrome clicks for pick/insert mode transitions in E2E', () => {
+    const helper = LIVE_E2E_UI_SOURCE.match(/async function ensureToggleActive\(page, selector, shouldBeActive\) \{[\s\S]*?\n\}/)?.[0] || '';
+    assert.match(helper, /ensureLiveControlActive\(page, selector, shouldBeActive\)/);
+    assert.doesNotMatch(helper, /page\.locator\(selector\)\.click/);
+  });
+
   it('does not checkpoint a generation before captureAndEmit creates its session', () => {
     for (const name of ['handleGo', 'handleInsertCreate']) {
       const body = SOURCE.match(new RegExp(`function ${name}\\(\\) \\{[\\s\\S]*?\\n  \\}`))?.[0];
