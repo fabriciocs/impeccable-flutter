@@ -223,6 +223,7 @@ class PageAdapter {
   close(options) { return this.raw.close(options); }
   screenshot(options) { return this.raw.screenshot(options); }
   content() { return this.raw.content(); }
+  createCDPSession() { return this.raw.createCDPSession(); }
   setDefaultTimeout(timeout) { this.raw.setDefaultTimeout(timeout); }
   setViewportSize(viewport) { return this.raw.setViewport(viewport); }
   waitForNavigation(options) { return this.raw.waitForNavigation(options); }

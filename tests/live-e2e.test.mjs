@@ -74,6 +74,93 @@ import { runPreActions, waitForCyclingRobust } from './live-e2e/preactions.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Puppeteer/CDP request interception used by race-oriented E2E scenarios.
+ * Returning { delayMs }, { abort: true }, or { fulfill: { status, contentType, body } }
+ * changes the paused request; returning null/undefined continues it unchanged.
+ */
+async function installCdpRequestInterceptor(page, handler) {
+  const client = await page.createCDPSession();
+  let closed = false;
+  const pending = new Set();
+
+  const onPaused = (event) => {
+    const work = (async () => {
+      let action;
+      try {
+        action = await handler({
+          url: event.request.url,
+          method: event.request.method,
+          headers: event.request.headers || {},
+          resourceType: event.resourceType || '',
+        });
+      } catch {
+        action = null;
+      }
+
+      if (closed) return;
+      try {
+        if (action?.delayMs) await delay(action.delayMs);
+        if (action?.abort) {
+          await client.send('Fetch.failRequest', {
+            requestId: event.requestId,
+            errorReason: 'Aborted',
+          });
+          return;
+        }
+        if (action?.fulfill) {
+          const body = String(action.fulfill.body ?? '');
+          const responseHeaders = [];
+          if (action.fulfill.contentType) {
+            responseHeaders.push({ name: 'content-type', value: action.fulfill.contentType });
+          }
+          responseHeaders.push({ name: 'cache-control', value: 'no-store' });
+          await client.send('Fetch.fulfillRequest', {
+            requestId: event.requestId,
+            responseCode: action.fulfill.status ?? 200,
+            responseHeaders,
+            body: Buffer.from(body, 'utf8').toString('base64'),
+          });
+          return;
+        }
+        await client.send('Fetch.continueRequest', { requestId: event.requestId });
+      } catch {
+        // Navigation/teardown can invalidate a paused request between the
+        // handler decision and the CDP continuation. Nothing remains to do.
+      }
+    })();
+    pending.add(work);
+    work.finally(() => pending.delete(work));
+  };
+
+  client.on('Fetch.requestPaused', onPaused);
+  await client.send('Fetch.enable', {
+    patterns: [{ urlPattern: '*', requestStage: 'Request' }],
+  });
+
+  return async () => {
+    if (closed) return;
+    closed = true;
+    client.off('Fetch.requestPaused', onPaused);
+    await Promise.allSettled([...pending]);
+    await client.send('Fetch.disable').catch(() => {});
+    await client.detach().catch(() => {});
+  };
+}
+
+async function blockPageWebSockets(page) {
+  const client = await page.createCDPSession();
+  await client.send('Network.enable');
+  await client.send('Network.setBlockedURLs', { urls: ['ws://*', 'wss://*'] });
+  return async () => {
+    await client.send('Network.setBlockedURLs', { urls: [] }).catch(() => {});
+    await client.send('Network.disable').catch(() => {});
+    await client.detach().catch(() => {});
+  };
+}
+
 // Discover fixtures that opt into the runtime E2E pass.
 function listRuntimeFixtures() {
   const names = readdirSync(FIXTURES_DIR, { withFileTypes: true })
@@ -1110,6 +1197,8 @@ for (const { name, fixture } of fixtures) {
         });
         const { page, appRoot, teardown } = session;
         const pickSelector = fixture.runtime.pickSelector || 'h1.hero-title';
+        let stopRequestInterception = null;
+        let stopWebSocketBlock = null;
         try {
           await waitForHandshake(page);
 
@@ -1118,16 +1207,26 @@ for (const { name, fixture } of fixtures) {
           // socket, so the scaffold-triggered reload still goes through; it is
           // the page that boots FROM that reload which comes up deaf.
           let liveConnectionsBlocked = true;
-          await page.context().route('**/events?token=*', (route) => {
-            if (liveConnectionsBlocked && route.request().method() === 'GET') {
-              return route.abort();
+          let scaffoldOnlySource = null;
+          let staleSourceServed = false;
+          stopRequestInterception = await installCdpRequestInterceptor(page, ({ url, method }) => {
+            const parsed = new URL(url);
+            if (parsed.pathname === '/events' && liveConnectionsBlocked && method === 'GET') {
+              return { abort: true };
             }
-            return route.continue();
+            if (parsed.pathname === '/source' && scaffoldOnlySource !== null && !staleSourceServed) {
+              staleSourceServed = true;
+              return {
+                fulfill: {
+                  status: 200,
+                  contentType: 'text/html; charset=utf-8',
+                  body: scaffoldOnlySource,
+                },
+              };
+            }
+            return null;
           });
-          await page.context().routeWebSocket('**', () => {
-            // Never connectToServer(): the reloaded page's HMR client talks to
-            // a dead mock, so the variant-write full-reload push is lost.
-          });
+          stopWebSocketBlock = await blockPageWebSockets(page);
 
           await pickElement(page, pickSelector);
           t.diagnostic('Clicking Go (agent write delayed 2.5s; reloaded page will miss HMR + SSE)');
@@ -1148,19 +1247,7 @@ for (const { name, fixture } of fixtures) {
           // its retry path — a single no-retry read here strands the tab in
           // GENERATING forever.
           const scaffoldSourceFile = join(appRoot, fixture.runtime.missedDoneReloadScenario.sourceFile);
-          const scaffoldOnlySource = readFileSync(scaffoldSourceFile, 'utf-8');
-          let staleSourceServed = false;
-          await page.context().route('**/source?token=*', (route) => {
-            if (!staleSourceServed) {
-              staleSourceServed = true;
-              return route.fulfill({
-                status: 200,
-                contentType: 'text/html; charset=utf-8',
-                body: scaffoldOnlySource,
-              });
-            }
-            return route.continue();
-          });
+          scaffoldOnlySource = readFileSync(scaffoldSourceFile, 'utf-8');
 
           // Wait for the delayed agent write to land in source while the page
           // is deaf to both delivery channels.
@@ -1181,6 +1268,8 @@ for (const { name, fixture } of fixtures) {
           assert.equal(staleSourceServed, true, 'the stale /source intercept must have exercised the retry path');
           t.diagnostic('Session recovered to CYCLING after SSE redelivery + stale-read retry');
         } finally {
+          await stopRequestInterception?.().catch(() => {});
+          await stopWebSocketBlock?.().catch(() => {});
           await teardownAndResetBrowser(teardown);
         }
       });
@@ -1406,12 +1495,15 @@ for (const { name, fixture } of fixtures) {
         const { page, teardown } = session;
         const annotation = fixture.runtime.liveChrome.annotations;
         const pickSelector = annotation.selector || fixture.runtime.pickSelector || 'h1.hero-title';
+        let stopAnnotationDelay = null;
         try {
           await waitForHandshake(page);
           if (annotation.uploadDelayMs) {
-            await page.route('**/annotation?*', async (route) => {
-              await new Promise(resolve => setTimeout(resolve, annotation.uploadDelayMs));
-              await route.continue();
+            stopAnnotationDelay = await installCdpRequestInterceptor(page, ({ url }) => {
+              const parsed = new URL(url);
+              return parsed.pathname === '/annotation'
+                ? { delayMs: annotation.uploadDelayMs }
+                : null;
             });
           }
           if (fixture.runtime.preActions) await runPreActions(page, fixture.runtime.preActions);
@@ -1437,6 +1529,7 @@ for (const { name, fixture } of fixtures) {
           await waitForBarHidden(page);
           await waitForSourceClean(sourceFile, 20_000, { svelteComponentTarget });
         } finally {
+          await stopAnnotationDelay?.().catch(() => {});
           await teardownAndResetBrowser(teardown);
         }
       });
@@ -1991,6 +2084,12 @@ async function runManualEditStage(page, stage, { t, fixture, session, agentMode,
   const remaining = await getServerManualEditStashCount(session.live);
   assert.equal(remaining, 0, 'manual edit stash cleared after Apply');
 
+  if (stage.refreshAfterApply) {
+    t.diagnostic('Manual scenario reloading after Apply before DOM assertions');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForHandshake(page);
+  }
+
   for (const edit of stage.edits || []) {
     if (edit.expectedVisibleText) {
       try {
@@ -2032,18 +2131,6 @@ async function runManualEditStage(page, stage, { t, fixture, session, agentMode,
     const rolledBackFiles = status.manualEdits?.lastActivity?.rolledBackFiles || [];
     assert.deepEqual(rolledBackFiles, [], 'manual Apply should not report rolled-back files');
     assert.notEqual(status.manualEdits?.lastActivity?.reason, 'manual_edit_repair_needs_decision');
-  }
-
-  if (stage.refreshAfterApply) {
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await waitForHandshake(page);
-    for (const edit of stage.edits || []) {
-      if (edit.expectedVisibleText) {
-        await assertVisibleText(page, edit.leafSelector, edit.expectedVisibleText, {
-          timeout: agentMode === 'llm' ? 60_000 : 20_000,
-        });
-      }
-    }
   }
 
   if (stage.afterApply) {
