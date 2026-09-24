@@ -12151,6 +12151,10 @@ void main() {
     if (pickActive) {
       insertActive = false;
       clearInsertPicking();
+      // The design panel occupies page hit-test space. Pick must always target
+      // the application beneath live chrome, so close the panel before the
+      // next hover/click can be resolved through elementFromPoint().
+      closeDesignPanelForInteractionMode();
     }
     saveInteractionPrefs();
     updateGlobalBarState();
@@ -12178,6 +12182,7 @@ void main() {
     insertActive = !insertActive;
     if (insertActive) {
       pickActive = false;
+      closeDesignPanelForInteractionMode();
       hideHighlight();
       hideBar();
       hideActionPicker();
@@ -12728,9 +12733,25 @@ void main() {
     return header;
   }
 
+  function closeDesignPanelForInteractionMode() {
+    if (!designState.open) return;
+    designState.open = false;
+    renderDesignChrome();
+  }
+
   function toggleDesignPanel() {
     if (pendingApplyInFlight) { showManualApplyBusyToast(); return; }
     designState.open = !designState.open;
+    if (designState.open) {
+      // Design inspection and page picking are mutually exclusive interaction
+      // surfaces. Opening the panel disarms page-level click interception so
+      // the panel itself cannot become a false Pick target.
+      pickActive = false;
+      insertActive = false;
+      clearInsertPicking();
+      if (state === 'PICKING') setLiveState('IDLE');
+      saveInteractionPrefs();
+    }
     renderDesignChrome();
     updateGlobalBarState();
     if (designState.open && designState.present === null && !designState.loading) {
@@ -12743,10 +12764,10 @@ void main() {
     designState.error = null;
     renderDesignBody();
     try {
-      const [jsonRes, rawRes] = await Promise.all([
-        fetch(`http://localhost:${PORT}/design-system.json?token=${TOKEN}`, { cache: 'no-store' }),
-        fetch(`http://localhost:${PORT}/design-system/raw?token=${TOKEN}`, { cache: 'no-store' }),
-      ]);
+      const jsonRes = await fetch(
+        `http://localhost:${PORT}/design-system.json?token=${TOKEN}`,
+        { cache: 'no-store' },
+      );
       const jsonData = await jsonRes.json();
       designState.present = jsonData.present === true;
       designState.parsed = jsonData.parsed || null;
@@ -12754,7 +12775,18 @@ void main() {
       designState.hasMd = !!jsonData.hasMd;
       designState.hasSidecar = !!jsonData.hasSidecar;
       designState.mdNewerThanJson = !!jsonData.mdNewerThanJson;
-      designState.raw = designState.present && rawRes.ok ? await rawRes.text() : null;
+      if (designState.hasMd) {
+        const rawRes = await fetch(
+          `http://localhost:${PORT}/design-system/raw?token=${TOKEN}`,
+          { cache: 'no-store' },
+        );
+        designState.raw = rawRes.ok ? await rawRes.text() : null;
+      } else {
+        // Raw markdown exists only when DESIGN.md exists. A project may have
+        // no design system at all, or only the generated design.json sidecar;
+        // neither case should trigger an expected 404 in the browser console.
+        designState.raw = null;
+      }
       designState.error = jsonData.parseError || jsonData.sidecarError || null;
     } catch (err) {
       designState.error = err?.message || 'Failed to load design system.';
