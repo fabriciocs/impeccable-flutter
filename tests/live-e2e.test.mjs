@@ -1197,6 +1197,8 @@ for (const { name, fixture } of fixtures) {
         });
         const { page, appRoot, teardown } = session;
         const pickSelector = fixture.runtime.pickSelector || 'h1.hero-title';
+        let stopRequestInterception = null;
+        let stopWebSocketBlock = null;
         try {
           await waitForHandshake(page);
 
@@ -1207,7 +1209,7 @@ for (const { name, fixture } of fixtures) {
           let liveConnectionsBlocked = true;
           let scaffoldOnlySource = null;
           let staleSourceServed = false;
-          const stopRequestInterception = await installCdpRequestInterceptor(page, ({ url, method }) => {
+          stopRequestInterception = await installCdpRequestInterceptor(page, ({ url, method }) => {
             const parsed = new URL(url);
             if (parsed.pathname === '/events' && liveConnectionsBlocked && method === 'GET') {
               return { abort: true };
@@ -1224,7 +1226,7 @@ for (const { name, fixture } of fixtures) {
             }
             return null;
           });
-          const stopWebSocketBlock = await blockPageWebSockets(page);
+          stopWebSocketBlock = await blockPageWebSockets(page);
 
           await pickElement(page, pickSelector);
           t.diagnostic('Clicking Go (agent write delayed 2.5s; reloaded page will miss HMR + SSE)');
