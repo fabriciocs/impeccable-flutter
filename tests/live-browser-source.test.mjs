@@ -7,6 +7,7 @@ import { runInNewContext } from 'node:vm';
 const SOURCE = readFileSync(join(process.cwd(), 'skill/scripts/live-browser.js'), 'utf-8');
 const LIVE_E2E_UI_SOURCE = readFileSync(join(process.cwd(), 'tests/live-e2e/ui.mjs'), 'utf-8');
 const LIVE_E2E_PREACTIONS_SOURCE = readFileSync(join(process.cwd(), 'tests/live-e2e/preactions.mjs'), 'utf-8');
+const LIVE_E2E_SOURCE = readFileSync(join(process.cwd(), 'tests/live-e2e.test.mjs'), 'utf-8');
 const LIVE_SERVER_SOURCE = readFileSync(join(process.cwd(), 'crates/live/src/live_server.rs'), 'utf-8');
 const PENDING_DOCK_POSITION_SOURCE = SOURCE.match(/function positionPendingDock\(\) \{[\s\S]*?\n  \}/)?.[0] || '';
 const CAPTURE_AND_EMIT_SOURCE = SOURCE.match(/async function captureAndEmit\([\s\S]*?\n  \}/)?.[0] || '';
@@ -63,6 +64,13 @@ describe('live-browser source contracts', () => {
     assert.match(toggleInsert, /closeDesignPanelForInteractionMode\(\)/);
     assert.match(toggleDesign, /pickActive = false/);
     assert.match(toggleDesign, /insertActive = false/);
+  });
+
+  it('keeps the live E2E harness on Puppeteer/CDP network APIs', () => {
+    assert.doesNotMatch(LIVE_E2E_SOURCE, /page\.route\s*\(/);
+    assert.doesNotMatch(LIVE_E2E_SOURCE, /page\.context\(\)\.route/);
+    assert.match(LIVE_E2E_SOURCE, /installCdpRequestInterceptor/);
+    assert.match(LIVE_E2E_SOURCE, /Network\.setBlockedURLs/);
   });
 
   it('does not checkpoint a generation before captureAndEmit creates its session', () => {
