@@ -302,6 +302,7 @@ jobs:
           path: test-results/live-e2e
           if-no-files-found: ignore
 
+  # Temporary PR gate: run the complete live E2E matrix before merging #9.
   live-e2e-full:
     name: live-e2e full (${{ matrix.group }})
     runs-on: ubuntu-latest
