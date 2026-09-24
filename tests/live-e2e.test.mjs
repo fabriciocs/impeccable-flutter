@@ -82,7 +82,7 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * changes the paused request; returning null/undefined continues it unchanged.
  */
 async function installCdpRequestInterceptor(page, handler) {
-  const client = await page.target().createCDPSession();
+  const client = await page.createCDPSession();
   let closed = false;
   const pending = new Set();
 
@@ -151,7 +151,7 @@ async function installCdpRequestInterceptor(page, handler) {
 }
 
 async function blockPageWebSockets(page) {
-  const client = await page.target().createCDPSession();
+  const client = await page.createCDPSession();
   await client.send('Network.enable');
   await client.send('Network.setBlockedURLs', { urls: ['ws://*', 'wss://*'] });
   return async () => {
