@@ -7,6 +7,7 @@ import { runInNewContext } from 'node:vm';
 const SOURCE = readFileSync(join(process.cwd(), 'skill/scripts/live-browser.js'), 'utf-8');
 const LIVE_E2E_UI_SOURCE = readFileSync(join(process.cwd(), 'tests/live-e2e/ui.mjs'), 'utf-8');
 const LIVE_E2E_PREACTIONS_SOURCE = readFileSync(join(process.cwd(), 'tests/live-e2e/preactions.mjs'), 'utf-8');
+const LIVE_SERVER_SOURCE = readFileSync(join(process.cwd(), 'crates/live/src/live_server.rs'), 'utf-8');
 const PENDING_DOCK_POSITION_SOURCE = SOURCE.match(/function positionPendingDock\(\) \{[\s\S]*?\n  \}/)?.[0] || '';
 const CAPTURE_AND_EMIT_SOURCE = SOURCE.match(/async function captureAndEmit\([\s\S]*?\n  \}/)?.[0] || '';
 
@@ -38,6 +39,19 @@ describe('live-browser source contracts', () => {
     const helper = LIVE_E2E_UI_SOURCE.match(/async function ensureToggleActive\(page, selector, shouldBeActive\) \{[\s\S]*?\n\}/)?.[0] || '';
     assert.match(helper, /ensureLiveControlActive\(page, selector, shouldBeActive\)/);
     assert.doesNotMatch(helper, /page\.locator\(selector\)\.click/);
+  });
+
+  it('treats an absent project design system as a normal live state', () => {
+    const fetchBody = SOURCE.match(/async function fetchDesignSystem\(\) \{[\s\S]*?\n  \}/)?.[0] || '';
+    assert.doesNotMatch(fetchBody, /Promise\.all/);
+    assert.match(fetchBody, /if \(designState\.present\)/);
+    assert.match(fetchBody, /design-system\/raw/);
+
+    const missingDesignRoute = LIVE_SERVER_SOURCE.match(
+      /if md_stat\.is_none\(\) && json_stat\.is_none\(\) \{[\s\S]*?\n            \}/,
+    )?.[0] || '';
+    assert.match(missingDesignRoute, /json_res\(200, json!\(\{ "present": false \}\)\)/);
+    assert.doesNotMatch(missingDesignRoute, /json_res\(404/);
   });
 
   it('does not checkpoint a generation before captureAndEmit creates its session', () => {
