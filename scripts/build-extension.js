@@ -5,9 +5,9 @@
  *
  * 1. Builds the five generated detector pieces (core.js, core_bg.wasm,
  *    snapshot.js, overlay.js, antipatterns.json) into extension/detector/ by
- *    running `cargo xtask bundle --check --extension-only`, which first verifies
- *    tracked live assets are current without rewriting them, then compiles the rule core to
- *    WebAssembly and concatenates it with the page JS in browser-bundle/.
+ *    running `cargo xtask bundle --check --extension-only`, which verifies the
+ *    deterministic rule registry without rewriting tracked live assets, then compiles
+ *    the rule core to WebAssembly and concatenates it with browser-bundle/.
  * 2. Checks that every path the manifest and the service worker reference
  *    exists in extension/.
  * 3. Packages extension.zip (Chrome Web Store) and extension-firefox.zip (AMO).
