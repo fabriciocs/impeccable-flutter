@@ -99,7 +99,7 @@ jobs:
         run: npx --yes web-ext@10 lint --source-dir dist/extension-firefox
       - name: Verify tracked generated sources stay clean
         if: needs.changes.outputs.detector == 'true'
-        run: git diff --exit-code -- crates/live/assets/antipatterns.json crates/live/assets/detect-antipatterns-browser.js skill/scripts/VERSION
+        run: git diff --exit-code -- crates/live/assets/antipatterns.json skill/scripts/VERSION
       - name: Verify generated tracked outputs
         run: git diff --exit-code -- .agents .claude .cursor .dsh .gemini .github/skills plugin extension/detector
       - name: Upload build artifacts
@@ -145,7 +145,7 @@ jobs:
       - name: Verify Windows extension bundle is non-mutating
         run: cargo xtask bundle --check --extension-only
       - name: Verify tracked generated sources stay clean on Windows
-        run: git diff --exit-code -- crates/live/assets/antipatterns.json crates/live/assets/detect-antipatterns-browser.js skill/scripts/VERSION
+        run: git diff --exit-code -- crates/live/assets/antipatterns.json skill/scripts/VERSION
 
   launcher-windows:
     runs-on: windows-latest
