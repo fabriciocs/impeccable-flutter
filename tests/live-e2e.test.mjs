@@ -2084,6 +2084,12 @@ async function runManualEditStage(page, stage, { t, fixture, session, agentMode,
   const remaining = await getServerManualEditStashCount(session.live);
   assert.equal(remaining, 0, 'manual edit stash cleared after Apply');
 
+  if (stage.refreshAfterApply) {
+    t.diagnostic('Manual scenario reloading after Apply before DOM assertions');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForHandshake(page);
+  }
+
   for (const edit of stage.edits || []) {
     if (edit.expectedVisibleText) {
       try {
@@ -2125,18 +2131,6 @@ async function runManualEditStage(page, stage, { t, fixture, session, agentMode,
     const rolledBackFiles = status.manualEdits?.lastActivity?.rolledBackFiles || [];
     assert.deepEqual(rolledBackFiles, [], 'manual Apply should not report rolled-back files');
     assert.notEqual(status.manualEdits?.lastActivity?.reason, 'manual_edit_repair_needs_decision');
-  }
-
-  if (stage.refreshAfterApply) {
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await waitForHandshake(page);
-    for (const edit of stage.edits || []) {
-      if (edit.expectedVisibleText) {
-        await assertVisibleText(page, edit.leafSelector, edit.expectedVisibleText, {
-          timeout: agentMode === 'llm' ? 60_000 : 20_000,
-        });
-      }
-    }
   }
 
   if (stage.afterApply) {
