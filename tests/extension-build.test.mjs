@@ -56,7 +56,7 @@ describe('extension badge colors', () => {
 });
 
 describe('extension build mutation boundary', () => {
-  it('checks tracked assets while generating only extension-local detector pieces', () => {
+  it('checks the deterministic registry while generating only extension-local detector pieces', () => {
     const buildScript = readFileSync(path.join(ROOT, 'scripts/build-extension.js'), 'utf-8');
     const xtask = readFileSync(path.join(ROOT, 'crates/xtask/src/main.rs'), 'utf-8');
 
