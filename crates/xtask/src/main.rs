@@ -10,8 +10,8 @@
 //!   2. concatenates the page JS (`browser-bundle/*.js`, embedded in
 //!      `impeccable-bundle`) in a fixed order with the wasm-bindgen glue and
 //!      the .wasm embedded as base64;
-//!   3. writes `dist/detect-antipatterns-browser.js` (deterministic: same
-//!      sources, same bytes) and `dist/antipatterns.json` (the registry
+//!   3. writes `dist/detect-antipatterns-browser.js` (toolchain-sensitive because
+//!      it embeds optimized WASM bytes) and `dist/antipatterns.json` (the registry
 //!      slice the extension panel reads), and copies both into
 //!      `crates/live/assets/`, where they are tracked: live mode embeds the
 //!      bundle and serves it as `/detect.js`, and `antipatterns.json` is the
@@ -20,14 +20,16 @@
 //!      `snapshot.js` (content-script snapshot producer), `overlay.js`
 //!      (content-script overlay UI), `core.js` + `core_bg.wasm`
 //!      (offscreen-document core), `antipatterns.json`. That directory is
-//!      gitignored and vendored by `bun run build:extension`, which runs
+//!      gitignored and vendored by `npm run build:extension`, which runs
 //!      this task.
 //!
 //! Run this after touching `crates/core`, `crates/foundation`,
 //! `crates/wasm`, or `browser-bundle/`, and commit the refreshed assets.
 //!
 //! `cargo xtask bundle --check` rebuilds and fails when either tracked asset
-//! differs (CI staleness gate).
+//! differs. `--check --extension-only` checks only the deterministic registry
+//! and then writes the gitignored extension pieces; it intentionally ignores
+//! byte drift in the embedded-WASM browser bundle across wasm toolchains.
 
 use std::path::{Path, PathBuf};
 
@@ -44,9 +46,10 @@ fn main() {
         Some("bundle") => bundle(
             args.iter().any(|a| a == "--check"),
             args.iter().any(|a| a == "--pure"),
+            args.iter().any(|a| a == "--extension-only"),
         ),
         _ => {
-            eprintln!("usage: cargo xtask bundle [--check] [--pure]");
+            eprintln!("usage: cargo xtask bundle [--check] [--pure] [--extension-only]");
             std::process::exit(2);
         }
     }
@@ -57,8 +60,19 @@ fn die(message: String) -> ! {
     std::process::exit(1);
 }
 
+
+fn text_bytes_equal_ignoring_crlf(actual: &[u8], expected: &[u8]) -> bool {
+    let Ok(actual) = std::str::from_utf8(actual) else {
+        return false;
+    };
+    let Ok(expected) = std::str::from_utf8(expected) else {
+        return false;
+    };
+    actual.replace("\r\n", "\n") == expected.replace("\r\n", "\n")
+}
+
 /// `pure`: also compile the `pure_*` exports (feature `pure-exports`).
-fn bundle(check: bool, pure: bool) {
+fn bundle(check: bool, pure: bool, extension_only: bool) {
     let root = root();
     let out_dir = root.join("target/wasm-bundle");
     let cargo_args: &[&str] = if pure { &["--features", "pure-exports"] } else { &[] };
@@ -87,29 +101,49 @@ fn bundle(check: bool, pure: bool) {
     ];
     if check {
         let mut stale = false;
-        for (path, want) in &tracked {
-            let name = path.strip_prefix(&root).unwrap_or(path).display();
-            if std::fs::read(path).unwrap_or_default() != *want {
+        if extension_only {
+            // The registry is source-derived and deterministic. The browser bundle
+            // embeds wasm-pack/wasm-opt output, whose bytes can change across
+            // compatible toolchain versions without a source-level behavior change.
+            let path = assets.join("antipatterns.json");
+            let want = registry.as_bytes();
+            let name = path.strip_prefix(&root).unwrap_or(&path).display();
+            let actual = std::fs::read(&path).unwrap_or_default();
+            if !text_bytes_equal_ignoring_crlf(&actual, want) {
                 eprintln!("{name} is stale");
                 stale = true;
             } else {
                 println!("{name} is up to date");
+            }
+        } else {
+            for (path, want) in &tracked {
+                let name = path.strip_prefix(&root).unwrap_or(path).display();
+                if std::fs::read(path).unwrap_or_default() != *want {
+                    eprintln!("{name} is stale");
+                    stale = true;
+                } else {
+                    println!("{name} is up to date");
+                }
             }
         }
         if stale {
             eprintln!("run `cargo xtask bundle` and commit crates/live/assets");
             std::process::exit(1);
         }
-        return;
+        if !extension_only {
+            return;
+        }
     }
-    std::fs::create_dir_all(&dist).expect("dist dir");
-    std::fs::write(dist.join("detect-antipatterns-browser.js"), &out).expect("write bundle");
-    std::fs::write(dist.join("antipatterns.json"), &registry).expect("write registry");
-    std::fs::create_dir_all(&assets).expect("live assets dir");
-    for (path, bytes) in &tracked {
-        std::fs::write(path, bytes).expect("write tracked asset");
+    if !extension_only {
+        std::fs::create_dir_all(&dist).expect("dist dir");
+        std::fs::write(dist.join("detect-antipatterns-browser.js"), &out).expect("write bundle");
+        std::fs::write(dist.join("antipatterns.json"), &registry).expect("write registry");
+        std::fs::create_dir_all(&assets).expect("live assets dir");
+        for (path, bytes) in &tracked {
+            std::fs::write(path, bytes).expect("write tracked asset");
+        }
     }
-    // extension/detector/: gitignored, vendored by `bun run build:extension`.
+    // extension/detector/: gitignored, vendored by `npm run build:extension`.
     let ext_dir = root.join("extension/detector");
     std::fs::create_dir_all(&ext_dir).expect("extension dir");
     std::fs::write(ext_dir.join("snapshot.js"), &ext.snapshot_js).expect("write snapshot.js");
@@ -132,4 +166,25 @@ fn bundle(check: bool, pure: bool) {
         b64_len / 1024,
         (out.len() - b64_len) / 1024
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::text_bytes_equal_ignoring_crlf;
+
+    #[test]
+    fn text_compare_ignores_crlf_only_differences() {
+        assert!(text_bytes_equal_ignoring_crlf(
+            b"[\r\n  {\r\n    \"id\": \"x\"\r\n  }\r\n]\r\n",
+            b"[\n  {\n    \"id\": \"x\"\n  }\n]\n",
+        ));
+    }
+
+    #[test]
+    fn text_compare_still_detects_content_drift() {
+        assert!(!text_bytes_equal_ignoring_crlf(
+            b"{\"id\":\"x\"}\r\n",
+            b"{\"id\":\"y\"}\n",
+        ));
+    }
 }

@@ -4,3 +4,8 @@
 # is also safe for any binary that lands under these trees.
 tests/fixtures/** -text
 tests/oracle/** -text
+# Canonical generated text is emitted with LF by Node/Rust on every platform.
+# Force LF on checkout so Windows validation builds remain byte-stable and clean.
+skill/scripts/VERSION text eol=lf
+crates/live/assets/antipatterns.json text eol=lf
+crates/live/assets/detect-antipatterns-browser.js text eol=lf

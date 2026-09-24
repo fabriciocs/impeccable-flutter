@@ -592,7 +592,8 @@ function syncEngineVersionFile(rootDir) {
   }
   const dest = path.join(rootDir, 'skill', 'scripts', 'VERSION');
   const current = fs.existsSync(dest) ? fs.readFileSync(dest, 'utf-8') : null;
-  if (current !== `${version}\n`) fs.writeFileSync(dest, `${version}\n`);
+  const normalizedCurrent = current == null ? null : current.replace(/\r\n/g, '\n');
+  if (normalizedCurrent !== `${version}\n`) fs.writeFileSync(dest, `${version}\n`);
   console.log(`✓ Engine pinned at v${version} (skill/scripts/VERSION)`);
 }
 

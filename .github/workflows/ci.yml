@@ -97,9 +97,9 @@ jobs:
       - name: Lint Firefox extension (web-ext)
         if: needs.changes.outputs.detector == 'true'
         run: npx --yes web-ext@10 lint --source-dir dist/extension-firefox
-      - name: Verify the tracked rule registry is current
+      - name: Verify tracked generated sources stay clean
         if: needs.changes.outputs.detector == 'true'
-        run: git diff --exit-code -- crates/live/assets/antipatterns.json
+        run: git diff --exit-code -- crates/live/assets/antipatterns.json skill/scripts/VERSION
       - name: Verify generated tracked outputs
         run: git diff --exit-code -- .agents .claude .cursor .dsh .gemini .github/skills plugin extension/detector
       - name: Upload build artifacts
@@ -138,6 +138,14 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo build --workspace --all-targets
       - run: cargo test --workspace --no-fail-fast
+      - name: Install WASM target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+      - name: Verify Windows extension bundle is non-mutating
+        run: cargo xtask bundle --check --extension-only
+      - name: Verify tracked generated sources stay clean on Windows
+        run: git diff --exit-code -- crates/live/assets/antipatterns.json skill/scripts/VERSION
 
   launcher-windows:
     runs-on: windows-latest
