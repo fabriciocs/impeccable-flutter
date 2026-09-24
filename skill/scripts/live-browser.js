@@ -12151,6 +12151,10 @@ void main() {
     if (pickActive) {
       insertActive = false;
       clearInsertPicking();
+      // The design panel occupies page hit-test space. Pick must always target
+      // the application beneath live chrome, so close the panel before the
+      // next hover/click can be resolved through elementFromPoint().
+      closeDesignPanelForInteractionMode();
     }
     saveInteractionPrefs();
     updateGlobalBarState();
@@ -12178,6 +12182,7 @@ void main() {
     insertActive = !insertActive;
     if (insertActive) {
       pickActive = false;
+      closeDesignPanelForInteractionMode();
       hideHighlight();
       hideBar();
       hideActionPicker();
@@ -12728,9 +12733,25 @@ void main() {
     return header;
   }
 
+  function closeDesignPanelForInteractionMode() {
+    if (!designState.open) return;
+    designState.open = false;
+    renderDesignChrome();
+  }
+
   function toggleDesignPanel() {
     if (pendingApplyInFlight) { showManualApplyBusyToast(); return; }
     designState.open = !designState.open;
+    if (designState.open) {
+      // Design inspection and page picking are mutually exclusive interaction
+      // surfaces. Opening the panel disarms page-level click interception so
+      // the panel itself cannot become a false Pick target.
+      pickActive = false;
+      insertActive = false;
+      clearInsertPicking();
+      if (state === 'PICKING') setLiveState('IDLE');
+      saveInteractionPrefs();
+    }
     renderDesignChrome();
     updateGlobalBarState();
     if (designState.open && designState.present === null && !designState.loading) {
