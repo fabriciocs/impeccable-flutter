@@ -54,6 +54,17 @@ describe('live-browser source contracts', () => {
     assert.doesNotMatch(missingDesignRoute, /json_res\(404/);
   });
 
+  it('keeps DESIGN.md chrome out of Pick and Insert hit-tests', () => {
+    const togglePick = SOURCE.match(/function togglePick\(\) \{[\s\S]*?\n  \}/)?.[0] || '';
+    const toggleInsert = SOURCE.match(/function toggleInsert\(\) \{[\s\S]*?\n  \}/)?.[0] || '';
+    const toggleDesign = SOURCE.match(/function toggleDesignPanel\(\) \{[\s\S]*?\n  \}/)?.[0] || '';
+
+    assert.match(togglePick, /closeDesignPanelForInteractionMode\(\)/);
+    assert.match(toggleInsert, /closeDesignPanelForInteractionMode\(\)/);
+    assert.match(toggleDesign, /pickActive = false/);
+    assert.match(toggleDesign, /insertActive = false/);
+  });
+
   it('does not checkpoint a generation before captureAndEmit creates its session', () => {
     for (const name of ['handleGo', 'handleInsertCreate']) {
       const body = SOURCE.match(new RegExp(`function ${name}\\(\\) \\{[\\s\\S]*?\\n  \\}`))?.[0];
