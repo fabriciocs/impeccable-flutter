@@ -12743,10 +12743,10 @@ void main() {
     designState.error = null;
     renderDesignBody();
     try {
-      const [jsonRes, rawRes] = await Promise.all([
-        fetch(`http://localhost:${PORT}/design-system.json?token=${TOKEN}`, { cache: 'no-store' }),
-        fetch(`http://localhost:${PORT}/design-system/raw?token=${TOKEN}`, { cache: 'no-store' }),
-      ]);
+      const jsonRes = await fetch(
+        `http://localhost:${PORT}/design-system.json?token=${TOKEN}`,
+        { cache: 'no-store' },
+      );
       const jsonData = await jsonRes.json();
       designState.present = jsonData.present === true;
       designState.parsed = jsonData.parsed || null;
@@ -12754,7 +12754,18 @@ void main() {
       designState.hasMd = !!jsonData.hasMd;
       designState.hasSidecar = !!jsonData.hasSidecar;
       designState.mdNewerThanJson = !!jsonData.mdNewerThanJson;
-      designState.raw = designState.present && rawRes.ok ? await rawRes.text() : null;
+      if (designState.present) {
+        const rawRes = await fetch(
+          `http://localhost:${PORT}/design-system/raw?token=${TOKEN}`,
+          { cache: 'no-store' },
+        );
+        designState.raw = rawRes.ok ? await rawRes.text() : null;
+      } else {
+        // Do not probe a resource that is intentionally absent. Besides
+        // avoiding a redundant request, this prevents a benign missing design
+        // system from surfacing as a 404 in live-E2E console assertions.
+        designState.raw = null;
+      }
       designState.error = jsonData.parseError || jsonData.sidecarError || null;
     } catch (err) {
       designState.error = err?.message || 'Failed to load design system.';
