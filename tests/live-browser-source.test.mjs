@@ -10,6 +10,13 @@ const PENDING_DOCK_POSITION_SOURCE = SOURCE.match(/function positionPendingDock\
 const CAPTURE_AND_EMIT_SOURCE = SOURCE.match(/async function captureAndEmit\([\s\S]*?\n  \}/)?.[0] || '';
 
 describe('live-browser source contracts', () => {
+  it('keeps picker recovery on the root-aware live chrome path', () => {
+    const helper = LIVE_E2E_UI_SOURCE.match(/async function ensurePickerActive\(page\) \{[\s\S]*?\n\}/)?.[0] || '';
+    assert.match(helper, /ensureLiveControlActive\(page, PICK_TOGGLE_ID, true\)/);
+    assert.doesNotMatch(helper, /waitForSelector\(GLOBAL_BAR_ID/);
+    assert.doesNotMatch(helper, /page\.locator\(PICK_TOGGLE_ID\)\.click/);
+  });
+
   it('uses DOM-dispatched chrome clicks for pick/insert mode transitions in E2E', () => {
     const helper = LIVE_E2E_UI_SOURCE.match(/async function ensureToggleActive\(page, selector, shouldBeActive\) \{[\s\S]*?\n\}/)?.[0] || '';
     assert.match(helper, /ensureLiveControlActive\(page, selector, shouldBeActive\)/);
