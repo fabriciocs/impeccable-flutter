@@ -12775,16 +12775,16 @@ void main() {
       designState.hasMd = !!jsonData.hasMd;
       designState.hasSidecar = !!jsonData.hasSidecar;
       designState.mdNewerThanJson = !!jsonData.mdNewerThanJson;
-      if (designState.present) {
+      if (designState.hasMd) {
         const rawRes = await fetch(
           `http://localhost:${PORT}/design-system/raw?token=${TOKEN}`,
           { cache: 'no-store' },
         );
         designState.raw = rawRes.ok ? await rawRes.text() : null;
       } else {
-        // Do not probe a resource that is intentionally absent. Besides
-        // avoiding a redundant request, this prevents a benign missing design
-        // system from surfacing as a 404 in live-E2E console assertions.
+        // Raw markdown exists only when DESIGN.md exists. A project may have
+        // no design system at all, or only the generated design.json sidecar;
+        // neither case should trigger an expected 404 in the browser console.
         designState.raw = null;
       }
       designState.error = jsonData.parseError || jsonData.sidecarError || null;
