@@ -10,8 +10,8 @@
 //!   2. concatenates the page JS (`browser-bundle/*.js`, embedded in
 //!      `impeccable-bundle`) in a fixed order with the wasm-bindgen glue and
 //!      the .wasm embedded as base64;
-//!   3. writes `dist/detect-antipatterns-browser.js` (deterministic: same
-//!      sources, same bytes) and `dist/antipatterns.json` (the registry
+//!   3. writes `dist/detect-antipatterns-browser.js` (toolchain-sensitive because
+//!      it embeds optimized WASM bytes) and `dist/antipatterns.json` (the registry
 //!      slice the extension panel reads), and copies both into
 //!      `crates/live/assets/`, where they are tracked: live mode embeds the
 //!      bundle and serves it as `/detect.js`, and `antipatterns.json` is the
@@ -27,8 +27,9 @@
 //! `crates/wasm`, or `browser-bundle/`, and commit the refreshed assets.
 //!
 //! `cargo xtask bundle --check` rebuilds and fails when either tracked asset
-//! differs (CI staleness gate). `--check --extension-only` performs the same
-//! staleness check and, when clean, writes only the gitignored extension pieces.
+//! differs. `--check --extension-only` checks only the deterministic registry
+//! and then writes the gitignored extension pieces; it intentionally ignores
+//! byte drift in the embedded-WASM browser bundle across wasm toolchains.
 
 use std::path::{Path, PathBuf};
 
@@ -89,13 +90,28 @@ fn bundle(check: bool, pure: bool, extension_only: bool) {
     ];
     if check {
         let mut stale = false;
-        for (path, want) in &tracked {
-            let name = path.strip_prefix(&root).unwrap_or(path).display();
-            if std::fs::read(path).unwrap_or_default() != *want {
+        if extension_only {
+            // The registry is source-derived and deterministic. The browser bundle
+            // embeds wasm-pack/wasm-opt output, whose bytes can change across
+            // compatible toolchain versions without a source-level behavior change.
+            let path = assets.join("antipatterns.json");
+            let want = registry.as_bytes();
+            let name = path.strip_prefix(&root).unwrap_or(&path).display();
+            if std::fs::read(&path).unwrap_or_default() != want {
                 eprintln!("{name} is stale");
                 stale = true;
             } else {
                 println!("{name} is up to date");
+            }
+        } else {
+            for (path, want) in &tracked {
+                let name = path.strip_prefix(&root).unwrap_or(path).display();
+                if std::fs::read(path).unwrap_or_default() != *want {
+                    eprintln!("{name} is stale");
+                    stale = true;
+                } else {
+                    println!("{name} is up to date");
+                }
             }
         }
         if stale {
