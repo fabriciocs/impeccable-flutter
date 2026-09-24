@@ -60,6 +60,17 @@ fn die(message: String) -> ! {
     std::process::exit(1);
 }
 
+
+fn text_bytes_equal_ignoring_crlf(actual: &[u8], expected: &[u8]) -> bool {
+    let Ok(actual) = std::str::from_utf8(actual) else {
+        return false;
+    };
+    let Ok(expected) = std::str::from_utf8(expected) else {
+        return false;
+    };
+    actual.replace("\r\n", "\n") == expected.replace("\r\n", "\n")
+}
+
 /// `pure`: also compile the `pure_*` exports (feature `pure-exports`).
 fn bundle(check: bool, pure: bool, extension_only: bool) {
     let root = root();
@@ -97,7 +108,8 @@ fn bundle(check: bool, pure: bool, extension_only: bool) {
             let path = assets.join("antipatterns.json");
             let want = registry.as_bytes();
             let name = path.strip_prefix(&root).unwrap_or(&path).display();
-            if std::fs::read(&path).unwrap_or_default() != want {
+            let actual = std::fs::read(&path).unwrap_or_default();
+            if !text_bytes_equal_ignoring_crlf(&actual, want) {
                 eprintln!("{name} is stale");
                 stale = true;
             } else {
@@ -154,4 +166,25 @@ fn bundle(check: bool, pure: bool, extension_only: bool) {
         b64_len / 1024,
         (out.len() - b64_len) / 1024
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::text_bytes_equal_ignoring_crlf;
+
+    #[test]
+    fn text_compare_ignores_crlf_only_differences() {
+        assert!(text_bytes_equal_ignoring_crlf(
+            b"[\r\n  {\r\n    \"id\": \"x\"\r\n  }\r\n]\r\n",
+            b"[\n  {\n    \"id\": \"x\"\n  }\n]\n",
+        ));
+    }
+
+    #[test]
+    fn text_compare_still_detects_content_drift() {
+        assert!(!text_bytes_equal_ignoring_crlf(
+            b"{\"id\":\"x\"}\r\n",
+            b"{\"id\":\"y\"}\n",
+        ));
+    }
 }
