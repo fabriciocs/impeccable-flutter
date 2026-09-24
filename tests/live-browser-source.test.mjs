@@ -44,7 +44,7 @@ describe('live-browser source contracts', () => {
   it('treats an absent project design system as a normal live state', () => {
     const fetchBody = SOURCE.match(/async function fetchDesignSystem\(\) \{[\s\S]*?\n  \}/)?.[0] || '';
     assert.doesNotMatch(fetchBody, /Promise\.all/);
-    assert.match(fetchBody, /if \(designState\.present\)/);
+    assert.match(fetchBody, /if \(designState\.hasMd\)/);
     assert.match(fetchBody, /design-system\/raw/);
 
     const missingDesignRoute = LIVE_SERVER_SOURCE.match(
