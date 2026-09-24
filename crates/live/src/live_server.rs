@@ -826,10 +826,14 @@ fn handle_connection(shared: Shared, mut stream: TcpStream, mut ticket: Ticket) 
                 return;
             }
             if md_stat.is_none() && json_stat.is_none() {
+                // A missing project design system is a normal state for live
+                // chrome, not a missing HTTP resource. Returning 200 keeps the
+                // browser console clean while preserving the explicit
+                // `present: false` contract consumed by the panel.
                 respond(
                     &mut stream,
                     &cors,
-                    json_res(404, json!({ "present": false })),
+                    json_res(200, json!({ "present": false })),
                 );
                 return;
             }
