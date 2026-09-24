@@ -9,6 +9,7 @@
 import { installLiveQueryHelpers, waitForCycling } from './ui.mjs';
 
 const PICK_TOGGLE = '#impeccable-live-pick-toggle';
+const INSERT_TOGGLE = '#impeccable-live-insert-toggle';
 
 /**
  * @param {import('puppeteer-core').Page} page
@@ -18,10 +19,14 @@ export async function runPreActions(page, actions) {
   if (!actions?.length) return;
 
   await installLiveQueryHelpers(page);
-  const wasActive = await page.evaluate((sel) =>
-    window.__impeccableLiveQuery?.(sel)?.dataset.active === 'true',
-  PICK_TOGGLE).catch(() => false);
-  if (wasActive) await clickPickToggle(page, PICK_TOGGLE);
+  const wasPickActive = await readInteractionToggle(page, PICK_TOGGLE);
+  const wasInsertActive = await readInteractionToggle(page, INSERT_TOGGLE);
+
+  // Pre-actions must reach the application itself. Both Pick and Insert
+  // intercept page clicks, so disarm whichever interaction mode survived the
+  // previous live/HMR transition before clicking fixture controls.
+  if (wasPickActive) await setInteractionToggle(page, PICK_TOGGLE, false);
+  if (wasInsertActive) await setInteractionToggle(page, INSERT_TOGGLE, false);
 
   try {
     for (let i = 0; i < actions.length; i++) {
@@ -49,29 +54,40 @@ export async function runPreActions(page, actions) {
       throw new Error(`unknown preAction type: ${a.type}`);
     }
   } finally {
-    if (wasActive) {
-      const isActive = await page.evaluate((sel) =>
-        window.__impeccableLiveQuery?.(sel)?.dataset.active === 'true',
-      PICK_TOGGLE).catch(() => false);
-      if (!isActive) await clickPickToggle(page, PICK_TOGGLE);
-    }
+    // Pick/Insert are mutually exclusive in live-browser.js, so restoring the
+    // exact mode that was active before the app setup preserves user state
+    // without leaving an interceptor enabled during the actions themselves.
+    if (wasPickActive) await setInteractionToggle(page, PICK_TOGGLE, true);
+    else if (wasInsertActive) await setInteractionToggle(page, INSERT_TOGGLE, true);
   }
 }
 
-async function clickPickToggle(page, selector) {
+async function readInteractionToggle(page, selector) {
   await installLiveQueryHelpers(page);
-  try {
-    await page.locator(selector).click({ timeout: 5_000 });
-    return;
-  } catch (err) {
-    const clicked = await page.evaluate((sel) => {
-      const btn = window.__impeccableLiveQuery(sel);
-      if (!btn) return false;
-      btn.click();
-      return true;
-    }, selector);
-    if (!clicked) throw err;
-  }
+  return page.evaluate(
+    (sel) => window.__impeccableLiveQuery?.(sel)?.dataset.active === 'true',
+    selector,
+  ).catch(() => false);
+}
+
+async function setInteractionToggle(page, selector, active) {
+  await installLiveQueryHelpers(page);
+  if (await readInteractionToggle(page, selector) === active) return;
+
+  const clicked = await page.evaluate((sel) => {
+    const btn = window.__impeccableLiveQuery?.(sel);
+    if (!btn || btn.disabled) return false;
+    btn.click();
+    return true;
+  }, selector);
+  if (!clicked) throw new Error(`live interaction toggle unavailable: ${selector}`);
+
+  await page.waitForFunction(
+    ({ sel, expected }) =>
+      window.__impeccableLiveQuery?.(sel)?.dataset.active === (expected ? 'true' : 'false'),
+    { sel: selector, expected: active },
+    { timeout: 5_000 },
+  );
 }
 
 /**

@@ -177,6 +177,25 @@ async function readControlActive(page, selector) {
   return page.evaluate((sel) => window.__impeccableLiveQuery(sel)?.dataset.active === 'true', selector);
 }
 
+
+async function waitForLiveElementVisible(page, selector, { timeout = 5_000 } = {}) {
+  await installLiveQueryHelpers(page);
+  await page.waitForFunction(
+    (sel) => {
+      const el = window.__impeccableLiveQuery(sel);
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      return style.visibility !== 'hidden'
+        && style.display !== 'none'
+        && rect.width > 0
+        && rect.height > 0;
+    },
+    selector,
+    { timeout },
+  );
+}
+
 async function ensureLiveControlActive(page, selector, active) {
   if (await readControlActive(page, selector) === active) return;
   await clickLiveControl(page, selector);
@@ -418,8 +437,7 @@ export async function pickElement(page, selector, opts = {}) {
     // Per-element bar mounts on click → wait for it. Dialog fixtures can
     // briefly hide the global live chrome while preActions open a portal, so
     // retry once after explicitly re-arming picker mode.
-    const visible = await page
-      .waitForSelector(BAR_ID, { state: 'visible', timeout: 5_000 })
+    const visible = await waitForLiveElementVisible(page, BAR_ID, { timeout: 5_000 })
       .then(() => true, () => false);
     if (visible) break;
     await resetPickMode(page);
@@ -481,27 +499,10 @@ async function clickPickTarget(page, el, position = null) {
 }
 
 async function ensurePickerActive(page) {
-  await page.waitForSelector(GLOBAL_BAR_ID, { timeout: 5_000 });
-  const active = await page
-    .locator(PICK_TOGGLE_ID)
-    .evaluate((el) => el.dataset.active === 'true')
-    .catch(() => false);
-  if (active) return;
-
-  const clicked = await page.evaluate((sel) => {
-    const btn = window.__impeccableLiveQuery(sel);
-    if (!btn) return false;
-    btn.click();
-    return true;
-  }, PICK_TOGGLE_ID);
-  if (!clicked) {
-    await page.locator(PICK_TOGGLE_ID).click({ timeout: 5_000 });
-  }
-  await page.waitForFunction(
-    (sel) => window.__impeccableLiveQuery(sel)?.dataset.active === 'true',
-    PICK_TOGGLE_ID,
-    { timeout: 5_000 },
-  );
+  // Live chrome may be mounted under the framework-safe UI root rather than
+  // document. Keep picker recovery on the same root-aware control path as the
+  // initial Pick/Insert toggle transition.
+  await ensureLiveControlActive(page, PICK_TOGGLE_ID, true);
 }
 
 async function resetPickMode(page) {
@@ -792,7 +793,7 @@ async function clickBarButton(page, label) {
     } catch (err) {
       lastErr = err;
     }
-    await page.waitForSelector(BAR_ID, { timeout: 5_000 }).catch(() => {});
+    await waitForLiveElementVisible(page, BAR_ID, { timeout: 5_000 }).catch(() => {});
     await page.waitForTimeout(500);
   }
   throw lastErr;
@@ -1325,15 +1326,10 @@ export async function waitForSteerUnlocked(page, { timeout = 15_000 } = {}) {
 }
 
 async function ensureToggleActive(page, selector, shouldBeActive) {
-  await installLiveQueryHelpers(page);
-  const isActive = await page.locator(selector).evaluate((el) => el?.dataset.active === 'true');
-  if (isActive === shouldBeActive) return;
-  await page.locator(selector).click({ timeout: 5_000 });
-  await page.waitForFunction(
-    ({ sel, active }) => window.__impeccableLiveQuery(sel)?.dataset.active === (active ? 'true' : 'false'),
-    { sel: selector, active: shouldBeActive },
-    { timeout: 5_000 },
-  );
+  // Reuse the chrome-aware path used by the bottom-bar smoke. A physical
+  // ElementHandle.click() can race the toggle's hover-driven label expansion
+  // and land on the adjacent control while the bar is animating.
+  await ensureLiveControlActive(page, selector, shouldBeActive);
 }
 
 /** Turn on Pick mode (and off Insert — they are mutually exclusive). */

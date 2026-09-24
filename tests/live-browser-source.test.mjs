@@ -5,10 +5,41 @@ import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
 
 const SOURCE = readFileSync(join(process.cwd(), 'skill/scripts/live-browser.js'), 'utf-8');
+const LIVE_E2E_UI_SOURCE = readFileSync(join(process.cwd(), 'tests/live-e2e/ui.mjs'), 'utf-8');
+const LIVE_E2E_PREACTIONS_SOURCE = readFileSync(join(process.cwd(), 'tests/live-e2e/preactions.mjs'), 'utf-8');
 const PENDING_DOCK_POSITION_SOURCE = SOURCE.match(/function positionPendingDock\(\) \{[\s\S]*?\n  \}/)?.[0] || '';
 const CAPTURE_AND_EMIT_SOURCE = SOURCE.match(/async function captureAndEmit\([\s\S]*?\n  \}/)?.[0] || '';
 
 describe('live-browser source contracts', () => {
+  it('disarms Pick and Insert before fixture pre-actions', () => {
+    assert.match(LIVE_E2E_PREACTIONS_SOURCE, /const INSERT_TOGGLE = '#impeccable-live-insert-toggle'/);
+    assert.match(LIVE_E2E_PREACTIONS_SOURCE, /wasPickActive = await readInteractionToggle\(page, PICK_TOGGLE\)/);
+    assert.match(LIVE_E2E_PREACTIONS_SOURCE, /wasInsertActive = await readInteractionToggle\(page, INSERT_TOGGLE\)/);
+    assert.match(LIVE_E2E_PREACTIONS_SOURCE, /setInteractionToggle\(page, PICK_TOGGLE, false\)/);
+    assert.match(LIVE_E2E_PREACTIONS_SOURCE, /setInteractionToggle\(page, INSERT_TOGGLE, false\)/);
+    assert.doesNotMatch(LIVE_E2E_PREACTIONS_SOURCE, /page\.locator\(selector\)\.click/);
+  });
+
+  it('never waits for live chrome bars through document-only selectors', () => {
+    assert.match(LIVE_E2E_UI_SOURCE, /async function waitForLiveElementVisible/);
+    assert.match(LIVE_E2E_UI_SOURCE, /window\.__impeccableLiveQuery\(sel\)/);
+    assert.doesNotMatch(LIVE_E2E_UI_SOURCE, /waitForSelector\(BAR_ID/);
+    assert.doesNotMatch(LIVE_E2E_UI_SOURCE, /waitForSelector\(GLOBAL_BAR_ID/);
+  });
+
+  it('keeps picker recovery on the root-aware live chrome path', () => {
+    const helper = LIVE_E2E_UI_SOURCE.match(/async function ensurePickerActive\(page\) \{[\s\S]*?\n\}/)?.[0] || '';
+    assert.match(helper, /ensureLiveControlActive\(page, PICK_TOGGLE_ID, true\)/);
+    assert.doesNotMatch(helper, /waitForSelector\(GLOBAL_BAR_ID/);
+    assert.doesNotMatch(helper, /page\.locator\(PICK_TOGGLE_ID\)\.click/);
+  });
+
+  it('uses DOM-dispatched chrome clicks for pick/insert mode transitions in E2E', () => {
+    const helper = LIVE_E2E_UI_SOURCE.match(/async function ensureToggleActive\(page, selector, shouldBeActive\) \{[\s\S]*?\n\}/)?.[0] || '';
+    assert.match(helper, /ensureLiveControlActive\(page, selector, shouldBeActive\)/);
+    assert.doesNotMatch(helper, /page\.locator\(selector\)\.click/);
+  });
+
   it('does not checkpoint a generation before captureAndEmit creates its session', () => {
     for (const name of ['handleGo', 'handleInsertCreate']) {
       const body = SOURCE.match(new RegExp(`function ${name}\\(\\) \\{[\\s\\S]*?\\n  \\}`))?.[0];
