@@ -481,27 +481,10 @@ async function clickPickTarget(page, el, position = null) {
 }
 
 async function ensurePickerActive(page) {
-  await page.waitForSelector(GLOBAL_BAR_ID, { timeout: 5_000 });
-  const active = await page
-    .locator(PICK_TOGGLE_ID)
-    .evaluate((el) => el.dataset.active === 'true')
-    .catch(() => false);
-  if (active) return;
-
-  const clicked = await page.evaluate((sel) => {
-    const btn = window.__impeccableLiveQuery(sel);
-    if (!btn) return false;
-    btn.click();
-    return true;
-  }, PICK_TOGGLE_ID);
-  if (!clicked) {
-    await page.locator(PICK_TOGGLE_ID).click({ timeout: 5_000 });
-  }
-  await page.waitForFunction(
-    (sel) => window.__impeccableLiveQuery(sel)?.dataset.active === 'true',
-    PICK_TOGGLE_ID,
-    { timeout: 5_000 },
-  );
+  // Live chrome may be mounted under the framework-safe UI root rather than
+  // document. Keep picker recovery on the same root-aware control path as the
+  // initial Pick/Insert toggle transition.
+  await ensureLiveControlActive(page, PICK_TOGGLE_ID, true);
 }
 
 async function resetPickMode(page) {
