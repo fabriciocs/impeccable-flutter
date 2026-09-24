@@ -177,6 +177,25 @@ async function readControlActive(page, selector) {
   return page.evaluate((sel) => window.__impeccableLiveQuery(sel)?.dataset.active === 'true', selector);
 }
 
+
+async function waitForLiveElementVisible(page, selector, { timeout = 5_000 } = {}) {
+  await installLiveQueryHelpers(page);
+  await page.waitForFunction(
+    (sel) => {
+      const el = window.__impeccableLiveQuery(sel);
+      if (!el) return false;
+      const style = getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      return style.visibility !== 'hidden'
+        && style.display !== 'none'
+        && rect.width > 0
+        && rect.height > 0;
+    },
+    selector,
+    { timeout },
+  );
+}
+
 async function ensureLiveControlActive(page, selector, active) {
   if (await readControlActive(page, selector) === active) return;
   await clickLiveControl(page, selector);
@@ -418,8 +437,7 @@ export async function pickElement(page, selector, opts = {}) {
     // Per-element bar mounts on click → wait for it. Dialog fixtures can
     // briefly hide the global live chrome while preActions open a portal, so
     // retry once after explicitly re-arming picker mode.
-    const visible = await page
-      .waitForSelector(BAR_ID, { state: 'visible', timeout: 5_000 })
+    const visible = await waitForLiveElementVisible(page, BAR_ID, { timeout: 5_000 })
       .then(() => true, () => false);
     if (visible) break;
     await resetPickMode(page);
@@ -775,7 +793,7 @@ async function clickBarButton(page, label) {
     } catch (err) {
       lastErr = err;
     }
-    await page.waitForSelector(BAR_ID, { timeout: 5_000 }).catch(() => {});
+    await waitForLiveElementVisible(page, BAR_ID, { timeout: 5_000 }).catch(() => {});
     await page.waitForTimeout(500);
   }
   throw lastErr;
