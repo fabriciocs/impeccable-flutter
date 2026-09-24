@@ -302,12 +302,11 @@ jobs:
           path: test-results/live-e2e
           if-no-files-found: ignore
 
-  # Temporary PR gate: run the complete live E2E matrix before merging #9.
   live-e2e-full:
     name: live-e2e full (${{ matrix.group }})
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.live_e2e == 'true' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'pull_request')
+    if: needs.changes.outputs.live_e2e == 'true' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
     timeout-minutes: 25
     strategy:
       fail-fast: true
