@@ -1325,15 +1325,10 @@ export async function waitForSteerUnlocked(page, { timeout = 15_000 } = {}) {
 }
 
 async function ensureToggleActive(page, selector, shouldBeActive) {
-  await installLiveQueryHelpers(page);
-  const isActive = await page.locator(selector).evaluate((el) => el?.dataset.active === 'true');
-  if (isActive === shouldBeActive) return;
-  await page.locator(selector).click({ timeout: 5_000 });
-  await page.waitForFunction(
-    ({ sel, active }) => window.__impeccableLiveQuery(sel)?.dataset.active === (active ? 'true' : 'false'),
-    { sel: selector, active: shouldBeActive },
-    { timeout: 5_000 },
-  );
+  // Reuse the chrome-aware path used by the bottom-bar smoke. A physical
+  // ElementHandle.click() can race the toggle's hover-driven label expansion
+  // and land on the adjacent control while the bar is animating.
+  await ensureLiveControlActive(page, selector, shouldBeActive);
 }
 
 /** Turn on Pick mode (and off Insert — they are mutually exclusive). */
