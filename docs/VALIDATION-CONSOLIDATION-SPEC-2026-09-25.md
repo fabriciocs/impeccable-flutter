@@ -1,4 +1,4 @@
-# Especificação consolidada — validação local Windows, engine isolado e gates
+# Especificação canônica e exaustiva — validação local Windows, engine isolado, testes, evidências e integração
 
 Data de consolidação: 2026-09-25  
 Repositório: `fabriciocs/impeccable-flutter`  
@@ -502,3 +502,642 @@ Set-ExecutionPolicy `
 ```
 
 O script deve concluir usando um engine exclusivo da execução mesmo que `C:\repos\impeccable-flutter\target\release\impeccable.exe` esteja bloqueado.
+
+
+---
+
+# REVISÃO CANÔNICA R2 — COMPLEMENTO NORMATIVO E PLANO ARQUIVO-A-ARQUIVO
+
+Esta revisão é normativa e prevalece sobre qualquer formulação anterior deste documento quando houver diferença. O baseline remoto da revisão é `main@a15c8249d6b8b76a061781cba0843c26b64558e1`, com `ENGINE_VERSION=0.1.5`.
+
+Na verificação remota desta revisão:
+- todas as branches existentes estão com `ahead_by=0` em relação a `main`;
+- não há PR aberta;
+- portanto não existe alteração remota pendente que deva ser reaplicada;
+- a feature de implementação deve partir de `main` e conter somente ajustes novos necessários para os gates abaixo.
+
+## R2.1 — Requisitos adicionais obrigatórios
+
+1. `IMPECCABLE_BIN` explicitamente definido é autoritativo. Se apontar para arquivo inexistente, a validação deve falhar; é proibido fallback silencioso para `skill/scripts/bin/**` ou `target/release/**`.
+2. O cleanup Windows deve declarar explicitamente que não existe sweep seguro suportado enquanto `scripts/lib/live-server-processes.mjs` não possuir enumeração Windows baseada em marcador forte.
+3. Nenhum comando da validação pode executar `taskkill /IM impeccable.exe`, `Stop-Process -Name impeccable` ou equivalente amplo.
+4. O script local deve preservar e restaurar `IMPECCABLE_BIN` e demais variáveis temporárias em `finally`.
+5. Toda evidência deve ficar abaixo de um único `test-results/local-validation/<run-id>/`.
+6. `-SkipBrowserE2E` pode existir para diagnóstico, porém impede `VERIFIED_PASS`.
+7. Atualização automática de oracle goldens é proibida durante validação.
+8. Alterar fixtures para fazer teste passar é proibido sem causa funcional comprovada e regressão específica.
+9. Playwright continua proibido; o harness permanece Puppeteer/CDP.
+10. O SHA-256 do engine usado deve aparecer em `engine-metadata.json` e `summary.json`.
+
+---
+
+# R2.2 — Estrutura de evidências obrigatória
+
+## Pasta criada somente em runtime
+
+```text
+test-results/
+  local-validation/
+    <run-id>/
+      summary.json
+      environment.json
+      engine-metadata.json
+      git-before.txt
+      git-after.txt
+      logs/
+        G00-baseline.log
+        G01-toolchain.log
+        G02-cleanup.log
+        G03-engine-build.log
+        G04-engine-provenance.log
+        G05-rust.log
+        G06-oracle.log
+        G07-node.log
+        G08-extension.log
+        G09-live-e2e.log
+        G10-clean-tree.log
+      cargo-target/
+      live-e2e/
+```
+
+A pasta deve ser ignorada por Git. Nenhum arquivo desse diretório deve ser commitado.
+
+---
+
+# FASE R2-00 — Baseline e identidade do checkout
+
+## Criar
+- `/Validate-Local.ps1`: entrypoint canônico.
+- runtime: `/test-results/local-validation/<run-id>/`.
+- runtime: `git-before.txt`.
+
+## Alterar
+### `/.gitignore`
+Adicionar exatamente uma regra ancorada para `/test-results/local-validation/`. Não ignorar `Validate-Local.ps1`.
+
+### `/Validate-Local.ps1`
+Implementar:
+- `Set-StrictMode -Version Latest`;
+- `$ErrorActionPreference='Stop'`;
+- resolução de root pelo diretório do próprio script quando `RepoPath` não for informado;
+- `git rev-parse --show-toplevel`;
+- `git rev-parse HEAD`;
+- `git branch --show-current`;
+- `git status --short`;
+- `git remote -v`;
+- suporte opcional a `-ExpectedCommit`;
+- dirty tree rastreada no início => FAIL;
+- detached HEAD permitido quando SHA satisfaz o gate.
+
+## Excluir
+Nenhum arquivo rastreado.
+
+## Gate
+G00 PASS somente com root, HEAD e status inicial comprovados.
+
+---
+
+# FASE R2-01 — Toolchain e instalação controlada
+
+## Criar
+- runtime: `environment.json`.
+
+## Alterar
+### `/Validate-Local.ps1`
+Registrar:
+- PowerShell version/edition;
+- Git;
+- Node;
+- npm;
+- rustup;
+- rustc;
+- Cargo;
+- targets instalados;
+- wasm-pack.
+
+Com `-SkipInstall`:
+- não executar instalação;
+- ausência de dependência obrigatória => FAIL com instrução precisa.
+
+Sem `-SkipInstall`:
+- `npm ci`;
+- `rustup target add wasm32-unknown-unknown` somente se ausente;
+- `cargo install wasm-pack --locked` somente se ausente.
+
+### `/rust-toolchain.toml`
+Nenhuma alteração funcional. Preservar `stable` e `wasm32-unknown-unknown`.
+
+### `/package-lock.json`
+Não alterar. `npm ci` não pode reescrever lockfile.
+
+## Excluir
+Nenhum.
+
+## Gate
+G01 PASS quando todas as ferramentas obrigatórias estiverem disponíveis e registradas.
+
+---
+
+# FASE R2-02 — Cleanup seguro e capability por plataforma
+
+## Criar
+### `/tests/live-server-processes.test.mjs`
+Novo teste unitário do contrato de discovery/cleanup.
+
+## Alterar
+### `/scripts/lib/live-server-processes.mjs`
+Adicionar helper testável equivalente a:
+
+```js
+export function supportsLiveServerSweep(platform = process.platform) {
+  return platform !== 'win32';
+}
+```
+
+Preservar:
+- markers obrigatórios;
+- `repoMarker()`;
+- matching por entrada completa;
+- proibição de sweep sem marker.
+
+Não implementar matching Windows por nome, porta ou substring de caminho.
+
+### `/scripts/run-tests.mjs`
+Em `cleanupRepoServers()`:
+- se sweep não suportado, informar explicitamente `unsupported on win32; no processes were enumerated`;
+- não imprimir `No leftover live servers` no Windows;
+- retornar 0 para esse best-effort sem fingir que houve enumeração;
+- em POSIX manter descoberta e encerramento atuais.
+
+Atualizar ajuda de `--cleanup`.
+
+### `/tests/live-server-leak.test.mjs`
+Preservar reaper POSIX e stop test. Adicionar cobertura da capability Windows sem tentar matar por nome.
+
+### `/Validate-Local.ps1`
+G02 executa `node scripts/run-tests.mjs --cleanup`, captura log e registra `cleanupSupported`.
+
+## Excluir
+Nenhum.
+
+## Gate
+G02 PASS quando comportamento da plataforma é explícito e nenhum processo não identificado pode ser encerrado.
+
+---
+
+# FASE R2-03 — Build isolado do engine
+
+## Criar
+- runtime: `cargo-target/`.
+
+## Alterar
+### `/Validate-Local.ps1`
+Criar:
+
+```powershell
+$ValidationCargoTarget = Join-Path $LogRoot "cargo-target"
+New-Item -ItemType Directory -Force -Path $ValidationCargoTarget | Out-Null
+```
+
+Compilar:
+
+```powershell
+cargo build --release -p impeccable --target-dir "$ValidationCargoTarget"
+```
+
+Resolver engine exclusivamente em:
+
+```text
+<LogRoot>\cargo-target\release\impeccable.exe
+```
+
+Validar:
+- existe;
+- tamanho > 0;
+- caminho está sob LogRoot;
+- não é `<repo>\target\release\impeccable.exe`.
+
+### `/tests/validate-local-script.test.mjs`
+Criar/expandir teste estrutural para exigir target isolado e proibir kill genérico.
+
+## Excluir
+Nenhum.
+
+## Gate
+G03 PASS mesmo que o exe global esteja bloqueado por outro processo.
+
+---
+
+# FASE R2-04 — Proveniência e precedência estrita de engine
+
+## Criar
+- runtime: `engine-metadata.json`.
+- `/tests/engine-bin.test.mjs`.
+
+## Alterar
+### `/Validate-Local.ps1`
+- preservar valor anterior de `IMPECCABLE_BIN`;
+- definir para o engine isolado;
+- executar `engine-probe`;
+- calcular SHA-256;
+- registrar path, hash, tamanho, mtime, HEAD e Cargo target;
+- não reatribuir `IMPECCABLE_BIN` até o `finally`.
+
+### `/tests/lib/engine-bin.mjs`
+Mudar a ordem semântica:
+- env ausente: fallback atual continua permitido;
+- env presente e arquivo válido: usar env;
+- env presente e inválido: erro explícito; NÃO procurar outro binário.
+
+### `/tests/engine-bin.test.mjs`
+Cobrir:
+- env válido vence fallback;
+- env inválido falha;
+- env inválido não usa `skill/scripts/bin`;
+- env inválido não usa `target/release`;
+- target Windows usa `.exe`;
+- path relativo é resolvido deterministicamente.
+
+### `/scripts/test-suites.mjs`
+Adicionar novo teste à suite `core` e triggers dos arquivos acima.
+
+## Excluir
+Nenhum.
+
+## Gate
+G04 PASS quando todos os consumidores são incapazes de trocar silenciosamente o engine selecionado.
+
+---
+
+# FASE R2-05 — Rust workspace
+
+## Criar
+- runtime: `logs/G05-rust.log`.
+
+## Alterar
+### `/Validate-Local.ps1`
+Executar build/test do workspace usando o target exclusivo quando aplicável:
+- `cargo build --workspace --all-targets --target-dir <ValidationCargoTarget>`;
+- `cargo test --workspace --no-fail-fast --target-dir <ValidationCargoTarget>`.
+
+Não executar build release sem `--target-dir`.
+
+### `/Cargo.toml`
+Não alterar.
+
+### `/crates/**`
+Não alterar para resolver o file lock. Mudança de produção só é permitida se um gate revelar defeito funcional independente e existir regressão correspondente.
+
+## Excluir
+Nenhum.
+
+## Gate
+G05 PASS com workspace Rust verde e árvore rastreada limpa.
+
+---
+
+# FASE R2-06 — Oracle
+
+## Criar
+- runtime: `logs/G06-oracle.log`.
+
+## Alterar
+### `/Validate-Local.ps1`
+Executar `node tests/oracle/run.mjs` herdando `IMPECCABLE_BIN`.
+
+### `/tests/oracle/run.mjs`
+Nenhuma alteração necessária.
+
+### `/tests/oracle/golden/**`
+Não alterar para mascarar regressão.
+
+### `/.gitattributes`
+Não alterar. Preservar `tests/oracle/** -text`.
+
+## Excluir
+Nenhum.
+
+## Gate
+G06 PASS com zero falha e zero golden ausente.
+
+---
+
+# FASE R2-07 — Suítes Node, build e packaging
+
+## Criar
+Nenhum arquivo além dos testes já definidos.
+
+## Alterar
+### `/package.json`
+Adicionar scripts:
+- `test:validate-local-script`;
+- `test:engine-bin`;
+- `test:live-server-processes`.
+
+Não atualizar dependencies/devDependencies.
+
+### `/scripts/test-suites.mjs`
+Registrar novos testes na suite `core` e adicionar triggers para:
+- `Validate-Local.ps1`;
+- `tests/lib/engine-bin.mjs`;
+- `scripts/lib/live-server-processes.mjs`;
+- novos testes.
+
+### `/Validate-Local.ps1`
+Executar em ordem:
+1. `npm run test:core`;
+2. `npm run test:detector`;
+3. `npm run test:live`;
+4. `npm run test:framework`;
+5. `npm run test:plugin-e2e`;
+6. `npm run build`;
+7. `npm run package:vscode`.
+
+Todos herdam o mesmo `IMPECCABLE_BIN`.
+
+### `/tests/framework-fixtures/**`
+Não alterar somente para obter PASS.
+
+## Excluir
+Nenhum.
+
+## Gate
+G07 PASS quando todas as suítes passam sem dirty tree.
+
+---
+
+# FASE R2-08 — Bundle/extension não mutante
+
+## Criar
+Somente artefatos ignorados em `dist/` e `extension/detector/`.
+
+## Alterar
+### `/Validate-Local.ps1`
+Executar:
+- `cargo xtask bundle --check --extension-only`;
+- `npm run build:extension`;
+- `git diff --exit-code -- crates/live/assets/antipatterns.json skill/scripts/VERSION`.
+
+### `/scripts/build-extension.js`
+Não alterar salvo regressão real.
+
+### `/crates/xtask/src/main.rs`
+Não alterar salvo regressão real.
+
+### `/.gitattributes`
+Não alterar regras LF existentes.
+
+## Excluir
+Nenhum.
+
+## Gate
+G08 PASS quando o build não modifica arquivos rastreados.
+
+---
+
+# FASE R2-09 — Live E2E
+
+## Criar
+- runtime: `live-e2e/`.
+- runtime: `logs/G09-live-e2e.log`.
+
+## Alterar
+### `/Validate-Local.ps1`
+Executar smoke groups equivalentes à CI:
+
+- platform: `astro-vite7,monorepo-nested-vite,nextjs-app-router,vite8-sveltekit`;
+- svelte: `vite8-sveltekit-stateful`;
+- react: `vite8-react-css-modules,vite8-react-insert,vite8-react-plain,vite8-react-pricing-cards`.
+
+Definir:
+- `IMPECCABLE_E2E_SCENARIOS=core,agent-target`;
+- `IMPECCABLE_E2E_ARTIFACT_DIR=<LogRoot>/live-e2e`;
+- timeouts explícitos.
+
+Adicionar:
+- `-FullLiveE2E`: usa full matrix da CI;
+- `-SkipBrowserE2E`: diagnóstico, marca SKIPPED e bloqueia VERIFIED_PASS.
+
+### `/tests/live-e2e.test.mjs`
+Não alterar inicialmente.
+
+### `/tests/live-e2e/**`
+Não alterar sem defeito reproduzido.
+
+## Excluir
+Nenhum.
+
+## Gate
+G09 PASS somente com browser matrix verde usando engine do G04.
+
+---
+
+# FASE R2-10 — Relatório, restauração e clean tree
+
+## Criar
+- runtime: `summary.json`;
+- runtime: `git-after.txt`.
+
+## Alterar
+### `/Validate-Local.ps1`
+No fechamento:
+- `git status --short`;
+- `git diff --check`;
+- comparar estado rastreado antes/depois;
+- completar summary;
+- em `finally`, restaurar `IMPECCABLE_BIN` anterior ou removê-lo;
+- restaurar vars E2E temporárias;
+- preservar evidências em falha.
+
+Schema mínimo de `summary.json`:
+- schemaVersion;
+- runId;
+- repoPath;
+- head;
+- branch;
+- startedAt/finishedAt/durationMs;
+- result;
+- cleanup.supported/platform;
+- engine.path/sha256/cargoTarget;
+- gates[].
+
+## Excluir
+Nenhum.
+
+## Gate
+G10 PASS com checkout rastreado limpo e evidência completa.
+
+---
+
+# FASE R2-11 — CI Windows
+
+## Criar
+Nenhum.
+
+## Alterar
+### `/.github/workflows/ci.yml`
+No job Windows relevante:
+- garantir Node/npm;
+- `npm ci`;
+- executar novos testes:
+  - validate-local-script;
+  - engine-bin;
+  - live-server-processes;
+- preservar build/test Rust;
+- preservar target WASM;
+- preservar wasm-pack;
+- preservar bundle non-mutating.
+
+Opcionalmente adicionar smoke:
+`Validate-Local.ps1 -SkipInstall -SkipBrowserE2E`.
+
+Esse smoke não concede VERIFIED_PASS porque G09 fica skipped.
+
+### `/scripts/ci-test-plan.mjs`
+Alterar somente se os triggers atuais não selecionarem corretamente os novos arquivos.
+
+### `/tests/ci-test-plan.test.mjs`
+Alterar somente se `ci-test-plan.mjs` for alterado.
+
+## Excluir
+Nenhum.
+
+## Gate
+G11 PASS com checks Windows e Linux relevantes verdes.
+
+---
+
+# FASE R2-12 — Documentação
+
+## Criar
+### `/docs/LOCAL-VALIDATION.md`
+Conteúdo obrigatório:
+- objetivo;
+- requisitos;
+- comando padrão;
+- `-SkipInstall`;
+- `-FullLiveE2E`;
+- `-SkipBrowserE2E` e limitação;
+- gates;
+- evidências;
+- target isolado;
+- precedência `IMPECCABLE_BIN`;
+- limitação do cleanup Windows;
+- troubleshooting de os error 5, wasm, browser, dirty tree.
+
+## Alterar
+### `/docs/ENGINE.md`
+- substituir exemplos Bun obsoletos onde o package atual usa npm;
+- documentar target isolado no Windows;
+- documentar `IMPECCABLE_BIN`;
+- linkar runbook.
+
+### `/README.md`
+Adicionar link curto para o runbook na área de desenvolvimento/testes.
+
+### `/docs/VALIDATION-CONSOLIDATION-SPEC-2026-09-25.md`
+Após implementação, registrar SHA/PR/data do VERIFIED_PASS sem remover requisitos.
+
+## Excluir
+Nenhum.
+
+## Gate
+G12 PASS quando todos os comandos documentados existem e nenhuma documentação promete sweep Windows inexistente.
+
+---
+
+# FASE R2-13 — Integração Git e encerramento
+
+## Criar
+Nenhum arquivo de produto.
+
+## Alterar
+Somente correções exigidas pelos gates.
+
+## Excluir
+Nenhum arquivo rastreado. Branches históricas não devem ser apagadas como substituto para merge.
+
+## Processo obrigatório
+1. feature parte do `main` atualizado;
+2. verificar todas as branches remotas;
+3. qualquer branch com `ahead_by>0` deve ser analisada;
+4. não reaplicar branch com `ahead_by=0`;
+5. abrir PR da feature;
+6. aguardar/avaliar checks disponíveis;
+7. merge;
+8. verificar novo SHA de `main`;
+9. verificar que não há PR aberta do mesmo escopo;
+10. registrar resultado.
+
+## Gate G13 — VERIFIED_PASS
+Exige cumulativamente G00–G12 PASS, merge concluído, CI relevante verde e evidências preservadas.
+
+---
+
+# R2.3 — Contrato por arquivo/pasta
+
+| Caminho | Ação | Contrato |
+|---|---|---|
+| `Validate-Local.ps1` | criar | orquestra G00–G10, target isolado, evidência, finally |
+| `test-results/local-validation/**` | criar runtime | evidências; sempre ignorado |
+| `.gitignore` | alterar | ignorar somente resultados locais adicionais |
+| `package.json` | alterar | adicionar scripts de regressão; sem dependency bump |
+| `scripts/test-suites.mjs` | alterar | novos testes/triggers |
+| `scripts/run-tests.mjs` | alterar | cleanup reporta capability real |
+| `scripts/lib/live-server-processes.mjs` | alterar | capability Windows explícita; sem sweep inseguro |
+| `tests/lib/engine-bin.mjs` | alterar | env explícito autoritativo |
+| `tests/engine-bin.test.mjs` | criar | regressão de precedência |
+| `tests/live-server-processes.test.mjs` | criar | regressão de capability/matching |
+| `tests/live-server-leak.test.mjs` | alterar | preservar POSIX e declarar limite Windows |
+| `tests/validate-local-script.test.mjs` | criar | contrato estático do PS1 |
+| `.github/workflows/ci.yml` | alterar | regressões Windows |
+| `docs/LOCAL-VALIDATION.md` | criar | runbook operacional |
+| `docs/ENGINE.md` | alterar | npm/Windows/IMPECCABLE_BIN |
+| `README.md` | alterar | link para runbook |
+| `.gitattributes` | preservar | LF atual |
+| `rust-toolchain.toml` | preservar | target WASM |
+| `ENGINE_VERSION` | preservar | 0.1.5 |
+| `Cargo.toml` | preservar | workspace/profile |
+| `crates/**` | preservar | lock Windows não exige mudança runtime |
+| `tests/oracle/**` | preservar | não regravar golden |
+| `tests/framework-fixtures/**` | preservar | não adaptar fixture para mascarar falha |
+| `tests/live-e2e/**` | preservar inicialmente | mudar apenas com regressão real |
+| `scripts/build-extension.js` | preservar | non-mutating atual |
+| `crates/xtask/src/main.rs` | preservar | `--extension-only` atual |
+
+---
+
+# R2.4 — Critério específico de resolução do os error 5
+
+A correção é aceita somente quando:
+1. `target\release\impeccable.exe` pode permanecer aberto;
+2. nova validação compila mesmo assim;
+3. o novo engine nasce sob o LogRoot;
+4. engine-probe usa esse arquivo;
+5. oracle usa esse arquivo;
+6. framework/live usam esse arquivo;
+7. live-E2E usa esse arquivo;
+8. hash do arquivo aparece na evidência;
+9. nenhum processo externo é morto somente para liberar o exe global;
+10. checkout rastreado termina limpo.
+
+---
+
+# R2.5 — Ordem de implementação recomendada
+
+1. R2-00 baseline;
+2. R2-04 precedência de engine e testes;
+3. R2-02 capability de cleanup;
+4. R2-03 target isolado;
+5. R2-01 toolchain;
+6. R2-05 Rust;
+7. R2-06 oracle;
+8. R2-07 Node/build;
+9. R2-08 extension;
+10. R2-09 E2E;
+11. R2-10 evidence;
+12. R2-11 CI;
+13. R2-12 docs;
+14. R2-13 integração.
+
+A dependência crítica é: **target isolado + `IMPECCABLE_BIN` autoritativo devem estar implementados antes de considerar qualquer oracle ou E2E como evidência do HEAD atual**.
