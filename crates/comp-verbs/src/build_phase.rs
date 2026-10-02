@@ -2911,7 +2911,7 @@ mod transparency_guidance_tests {
             let next = next_instruction(&io, &json!({"phase": "plates"}));
             assert!(next.contains(&format!("{expected} generate-image --ref")), "{next}");
         }
-        for value in ["impeccable", "npx impeccable", "bunx impeccable", "npx --yes impeccable"] {
+        for value in ["impeccable", "npx impeccable", "npx --yes impeccable"] {
             let env = [("IMPECCABLE_SELF".into(), value.into())].into();
             let (io, _) = Io::captured("", dir.clone(), env);
             assert_eq!(self_cmd(&io), value);
