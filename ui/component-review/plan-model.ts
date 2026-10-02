@@ -1,6 +1,6 @@
 /** Plan and asset review (packet schemaVersion 3). Pure logic; the view lives in plan-review.ts.
  * Contract: docs/PLAN-REVIEW.md. */
-import { validBox, type Box, type Missing } from './model';
+import { validBox, type Box, type Missing } from './model.ts';
 
 export type AssetKind = 'plate' | 'image' | 'texture';
 export type Flag = { id: string; message: string };
