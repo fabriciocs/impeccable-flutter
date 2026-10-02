@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test';
-import { reviewScope, reviewUnits, decisionTargets, nextUnreviewed, approveRemaining, newDraft, submission, summarize, validBox, type ReviewPacket } from './model';
+import { describe, expect, test } from '../../tests/node-test-compat.mjs';
+import { reviewScope, reviewUnits, decisionTargets, nextUnreviewed, approveRemaining, newDraft, submission, summarize, validBox, type ReviewPacket } from './model.ts';
 const packet: ReviewPacket = { id:'review-1', revision:'packet-1', title:'Test', round:1, comp:{url:'/comp.png',width:100,height:100}, components:[{id:'art',revision:'art-1',name:'Art',medium:'Raster',note:'',box:{x:0,y:0,w:1,h:1},preview:{kind:'image',url:'/art.png'}},{id:'control',revision:'control-1',name:'Button',medium:'HTML',note:'',box:{x:0,y:0,w:.1,h:.1},preview:{kind:'page',url:'/page.html'}}] };
 describe('component review drafts',()=>{
  test('bulk approval still requires explicit inventory confirmation',()=>{const draft=approveRemaining(packet,newDraft(packet));expect(summarize(packet,draft).canSubmit).toBe(false);draft.inventoryConfirmed=true;expect(submission(packet,draft).requestId).toBe(packet.id);});
@@ -12,7 +12,7 @@ describe('component review drafts',()=>{
 
 
 test('draft-only or changed prior decisions never count as carried approval', async () => {
-  const { repairStatus } = await import('./model');
+  const { repairStatus } = await import('./model.ts');
   const history: any = {
     submitted: false, packet: { round: 1 },
     draft: { decisions: { art: { action: 'approve' } } },
@@ -29,7 +29,7 @@ test('draft-only or changed prior decisions never count as carried approval', as
 
 
 test('attention states cannot hide a component behind a stale approval', async () => {
-  const { componentState } = await import('./model');
+  const { componentState } = await import('./model.ts');
   const draft=approveRemaining(packet,newDraft(packet));
   expect(componentState(packet.components[0],draft).kind).toBe('approved');
   expect(componentState({...packet.components[0],revision:'new'},draft).kind).toBe('pending');
@@ -38,7 +38,7 @@ test('attention states cannot hide a component behind a stale approval', async (
 });
 
 test('captured code keeps its implementation identity without trusting medium as proof', async () => {
-  const { componentPresentation } = await import('./model');
+  const { componentPresentation } = await import('./model.ts');
   const image = packet.components[0];
   expect(componentPresentation({...image, medium:'SVG'}).code).toBe(false);
   const captured = {...packet.components[1], preview:{kind:'image' as const, sourceKind:'page' as const, url:'/capture.png'}};
@@ -62,7 +62,7 @@ test('review progression skips decisions, wraps, and revisits stale components',
 });
 
 test('reviewed queue includes feedback, pending queue includes stale decisions', async () => {
-  const { inReviewQueue } = await import('./model');
+  const { inReviewQueue } = await import('./model.ts');
   const draft=approveRemaining(packet,newDraft(packet));
   draft.decisions.art.action='revise';
   expect(packet.components.filter(c=>inReviewQueue(c,draft,'pending'))).toHaveLength(0);
@@ -74,7 +74,7 @@ test('reviewed queue includes feedback, pending queue includes stale decisions',
 });
 
 test('explicit pattern decisions preserve prior decisions, raster reviews and open edits', async () => {
-  const {reviewPeers,decisionTargets}=await import('./model');
+  const {reviewPeers,decisionTargets}=await import('./model.ts');
   const pattern={...packet.components[1],reviewGroup:'Room labels'};
   const p={...packet,components:[{...packet.components[0],reviewGroup:'Room labels'},pattern,
     ...['b','c','d'].map(id=>({...pattern,id,revision:id}))]};
