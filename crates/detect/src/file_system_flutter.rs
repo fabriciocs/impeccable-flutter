@@ -44,7 +44,7 @@ pub fn has_scannable_extension(filename: &str) -> bool {
 }
 
 pub fn walk_dir(dir: &str) -> Vec<String> {
-    walk_dir_reporting(dir, &mut |_, _| {})
+    walk_dir_reporting(dir, &[], &mut |_, _| {})
 }
 
 /// Upstream walker semantics with `.dart` included. Generated/hidden Flutter
@@ -52,6 +52,7 @@ pub fn walk_dir(dir: &str) -> Vec<String> {
 /// hidden-directory rules, and `build/` is never treated as Dart source.
 pub fn walk_dir_reporting(
     dir: &str,
+    extra_exts: &[String],
     on_read_error: &mut dyn FnMut(&str, &std::io::Error),
 ) -> Vec<String> {
     let mut files = Vec::new();
@@ -78,8 +79,10 @@ pub fn walk_dir_reporting(
         }
         let full = crate::jsp::join(&[dir, &name]);
         if is_dir {
-            files.extend(walk_dir_reporting(&full, on_read_error));
-        } else if has_scannable_extension(&name) {
+            files.extend(walk_dir_reporting(&full, extra_exts, on_read_error));
+        } else if has_scannable_extension(&name)
+            || extra_exts.iter().any(|ext| name.to_ascii_lowercase().ends_with(ext))
+        {
             files.push(full);
         }
     }
