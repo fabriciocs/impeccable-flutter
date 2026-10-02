@@ -27,6 +27,8 @@ export const SUITES = {
   core: {
     description: 'Build, provider transforms, hook manifests, plugin validators, and prose gates.',
     triggers: [
+      /^ui\/component-review\//,
+      /^crates\/context\/assets\/component-review\.js$/,
       ...COMMON_INFRA_PATTERNS,
       /^scripts\/(?!build-extension)/,
       /^skill\/(SKILL\.src\.md|agents\/|reference\/|scripts\/)/,
@@ -41,6 +43,7 @@ export const SUITES = {
         runner: 'node-compat',
         files: [
           'tests/build.test.js',
+          'tests/component-review-bundle.test.js',
           'tests/lib/provider-blocks.test.js',
           'tests/lib/transformers/provider-blocks.test.js',
           'tests/lib/utils.test.js',
@@ -123,6 +126,7 @@ export const SUITES = {
         'tests/live-agent-target.test.mjs',
         'tests/live-boot-fastpath.test.mjs',
         'tests/live-browser-ignores.test.mjs',
+        'tests/live-browser-session.test.mjs',
         'tests/live-browser-source.test.mjs',
         'tests/live-e2e-agent-output.test.mjs',
         'tests/live-e2e-cli-options.test.mjs',
