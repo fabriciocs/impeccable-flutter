@@ -1,5 +1,5 @@
-import { expect, test } from 'bun:test';
-import { comparisonSize, hoverPan } from './viewport';
+import { expect, test } from '../../tests/node-test-compat.mjs';
+import { comparisonSize, hoverPan } from './viewport.ts';
 
 test('portrait regions fit the available height without distorting the reference', () => {
   const size = comparisonSize(768, 922, 210, 248, 'fit');
