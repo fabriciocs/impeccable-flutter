@@ -379,31 +379,30 @@ As you run commands, Impeccable writes working files under `.impeccable/`: criti
 ```gitignore
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.
-# Unanchored: .impeccable may sit at the repo root or under a nested
-# workspace (apps/web/.impeccable/...); anchored patterns would miss it.
+# The **/ prefix covers .impeccable at the repo root or in a nested workspace.
 # Shared artifacts stay tracked: config.json, live/config.json,
 # design.json, surfaces/*.md, critique/*.md.
-.impeccable/config.local.json
-.impeccable/hook.cache.json
-.impeccable/hook.pending.json
-.impeccable/*.png
-.impeccable/review/
-.impeccable/questions/
-.impeccable/live/server.json
-.impeccable/live/sessions/
-.impeccable/live/previews/
-.impeccable/live/annotations/
-.impeccable/live/cache/
-.impeccable/live/manual-edit-apply-transaction.json
-.impeccable/live/manual-edit-events.jsonl
-.impeccable/live/manual-edit-evidence/
-.impeccable/live/pending-manual-edits.json
-.impeccable/live/deferred-svelte-component-accepts.json
-.impeccable/live/*.png
+**/.impeccable/config.local.json
+**/.impeccable/hook.cache.json
+**/.impeccable/hook.pending.json
+**/.impeccable/*.png
+**/.impeccable/review/
+**/.impeccable/questions/
+**/.impeccable/live/server.json
+**/.impeccable/live/sessions/
+**/.impeccable/live/previews/
+**/.impeccable/live/annotations/
+**/.impeccable/live/cache/
+**/.impeccable/live/manual-edit-apply-transaction.json
+**/.impeccable/live/manual-edit-events.jsonl
+**/.impeccable/live/manual-edit-evidence/
+**/.impeccable/live/pending-manual-edits.json
+**/.impeccable/live/deferred-svelte-component-accepts.json
+**/.impeccable/live/*.png
 # impeccable-ignore-end
 ```
 
-The block is wrapped in `# impeccable-ignore-start` / `# impeccable-ignore-end` markers so you can recognize and refresh it later. Patterns are unanchored on purpose: in a monorepo the active project (and its `.impeccable/` directory) often lives under a nested workspace path like `apps/web/`, and a root-anchored pattern would miss it.
+The block is wrapped in `# impeccable-ignore-start` / `# impeccable-ignore-end` markers so you can recognize and refresh it later. The `**/` prefix makes each pattern match whether the active project's `.impeccable/` directory is at the repository root or under a nested workspace path like `apps/web/`.
 
 **Keep these tracked** (they are shared project artifacts, do not add them to `.gitignore`):
 
@@ -433,7 +432,7 @@ In Claude Code, installed command hooks run independently of model-tool approval
 
 The installer preserves unrelated hook entries and settings. If a hook manifest is malformed, install/update aborts by default; rerun with `--force` to back up the malformed file as `.bak` and replace it.
 
-On an interactive `install`/`update`, Impeccable explains the hook and offers to install it (default yes). Your choice is remembered per-developer in the gitignored `.impeccable/config.local.json`, so you are not asked again; `--no-hooks` skips it for that run without recording anything. Hook lifecycle settings live under the `hook` key of `.impeccable/config.json`; detector ignores live under `detector`, shared by `/impeccable hooks` and `npx impeccable detect`.
+On an interactive `install`/`update`, Impeccable explains the hook and offers to install it (default yes). Your choice is remembered per-developer in the gitignored `**/.impeccable/config.local.json`, so you are not asked again; `--no-hooks` skips it for that run without recording anything. Hook lifecycle settings live under the `hook` key of `.impeccable/config.json`; detector ignores live under `detector`, shared by `/impeccable hooks` and `npx impeccable detect`.
 
 For debugging, set `hook.auditLog` in `.impeccable/config.json` to a path (or the legacy `IMPECCABLE_HOOK_LOG` env var) to write one NDJSON line per hook invocation. Leave it unset for normal use.
 
@@ -445,7 +444,7 @@ When a new surface gets designed, Impeccable either generates a full-fidelity co
 { "buildPath": "comp" }
 ```
 
-The values are `comp` and `code`, and nothing else is read. Set it in the gitignored `.impeccable/config.local.json` to override the team's committed value on one machine, which is what you want when your harness has no image generation. In a monorepo, commit it once at the repo root and any workspace that wants something else sets its own. The choice appears at all only where image generation is available, since without it there is nothing to comp.
+The values are `comp` and `code`, and nothing else is read. Set it in the gitignored `**/.impeccable/config.local.json` to override the team's committed value on one machine, which is what you want when your harness has no image generation. In a monorepo, commit it once at the repo root and any workspace that wants something else sets its own. The choice appears at all only where image generation is available, since without it there is nothing to comp.
 
 You do not have to re-run `init` to set it on a project that predates the setting, and you do not have to edit the file by hand either. Whatever is recorded is a default rather than a lock: every decision page carries a footer toggle, and flipping it binds that session only. Flip it on a project that has recorded nothing and Impeccable asks once, after the round, whether to keep it, then writes your answer. That is the whole migration path for an existing project: use the toggle when the default is wrong, and answer the question that follows.
 
@@ -491,7 +490,7 @@ The detector catches 61 deterministic issues across AI slop (side-tab borders, p
 
 Human-readable findings are diagnostics written to stderr, so redirect them with `2> findings.txt`. Use `--json` for machine-readable results on stdout. Exit `0` means the scan completed without primary findings, exit `2` means it completed with primary findings, and exit `1` means at least one requested target could not be scanned; operational failure takes precedence for a partial multi-target scan. URL scans inspect the rendered DOM, computed layout, and accessible linked stylesheets; browser security still prevents reading cross-origin CSS without CORS. A clean detector run is evidence, not proof of visual or accessibility quality: it does not replace inspecting the rendered experience across relevant viewports. Dart source scans are independent of browser rendering and remain available for native Flutter apps with no Web server.
 
-By default, `detect` respects the same `.impeccable/config.json` and `.impeccable/config.local.json` detector config as the design hook: `detector.ignoreRules`, `detector.ignoreFiles`, `detector.ignoreValues`, and `detector.designSystem.enabled`. Hook lifecycle settings such as `hook.enabled` only affect automatic hook execution.
+By default, `detect` respects the same `.impeccable/config.json` and `**/.impeccable/config.local.json` detector config as the design hook: `detector.ignoreRules`, `detector.ignoreFiles`, `detector.ignoreValues`, and `detector.designSystem.enabled`. Hook lifecycle settings such as `hook.enabled` only affect automatic hook execution.
 
 For a waiver that should travel with one file instead of the repo config, add an inline comment in the file: `<!-- impeccable-disable overused-font: exported brand doc -->`. The marker works in any comment syntax, scopes to the whole file (or one line with `impeccable-disable-line` / `impeccable-disable-next-line`), and is bypassed by `--no-inline-ignores` or `--no-config`.
 
