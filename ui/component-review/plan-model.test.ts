@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test';
-import { clearDecision, planView, decide, defaultAssetKind, extraRegions, flagMessage, isFlagged, isPlanPacket, itemState, medianColor, newPlanDraft, nextPending, pairLayout, planQueue, planSubmission, planSummary, ringSamples, setRegionReclassify, type PlanPacket } from './plan-model';
+import { describe, expect, test } from '../../tests/node-test-compat.mjs';
+import { clearDecision, planView, decide, defaultAssetKind, extraRegions, flagMessage, isFlagged, isPlanPacket, itemState, medianColor, newPlanDraft, nextPending, pairLayout, planQueue, planSubmission, planSummary, ringSamples, setRegionReclassify, type PlanPacket } from './plan-model.ts';
 
 const packet: PlanPacket = {
   schemaVersion: 3, stage: 'components', id: 'review-1', revision: 'rev-1', title: 'Harbour', round: 1,
@@ -136,14 +136,14 @@ describe('plan and asset review model', () => {
 
 describe('stage flow helpers', () => {
   test('the intro says how much there is to do, or what changed since last round', async () => {
-    const { introLine } = await import('./plan-model');
+    const { introLine } = await import('./plan-model.ts');
     expect(introLine(packet, newPlanDraft(packet))).toBe('Three things to check before any page code is written. About one minute.');
     const draft = decide(newPlanDraft(packet), rule, 'approve');
     const history: any = { packet: { ...packet, round: 1 }, submitted: true, changes: { figure: { kind: 'changed', files: [], reasons: [] } }, feedback: { panel: { round: 1, decision: { action: 'revise', feedback: 'Moor the boats' } } } };
     expect(introLine({ ...packet, round: 2 }, draft, history)).toBe('The agent worked on your notes for two items. One approval is kept.');
   });
   test('prior round quotes the user and keeps the old asset for before/after', async () => {
-    const { priorRound } = await import('./plan-model');
+    const { priorRound } = await import('./plan-model.ts');
     const old = { ...packet, components: packet.components.map(c => c.id === 'figure' ? { ...c, preview: { kind: 'image' as const, url: '/old.png' } } : c) };
     const history: any = { packet: old, submitted: true, changes: { figure: { kind: 'changed', files: ['a.png'], reasons: [] } }, feedback: { figure: { round: 1, decision: { action: 'revise', feedback: ' Face the sea ' } } } };
     expect(priorRound('figure', history)).toMatchObject({ round: 1, words: 'Face the sea', beforeUrl: '/old.png', wasCode: false });
@@ -152,7 +152,7 @@ describe('stage flow helpers', () => {
     expect(priorRound('headline', reclassified)).toMatchObject({ wasCode: true, wasKind: 'text' });
   });
   test('figure layout keeps equal heights and stacks bands', async () => {
-    const { figureLayout } = await import('./plan-model');
+    const { figureLayout } = await import('./plan-model.ts');
     const row = figureLayout([1, 1, 1], 900, 400, 16, 20);
     expect(row.direction).toBe('row');
     expect(new Set(row.sizes.map(s => Math.round(s.h))).size).toBe(1);
@@ -161,11 +161,11 @@ describe('stage flow helpers', () => {
     expect(figureLayout([1, 1], 900, 500, 16, 20, 2, { w: 50, h: 50 }).sizes[0].h).toBe(100);
   });
   test('loupe centres the pointed spot', async () => {
-    const { loupeOffset } = await import('./plan-model');
+    const { loupeOffset } = await import('./plan-model.ts');
     expect(loupeOffset(.5, .5, 200, 100, 80, 3)).toEqual({ x: 80 - 300, y: 80 - 150 });
   });
   test('send label counts what goes back', async () => {
-    const { sendLabel } = await import('./plan-model');
+    const { sendLabel } = await import('./plan-model.ts');
     let draft = newPlanDraft(packet);
     for (const c of packet.components) draft = decide(draft, c, 'approve');
     expect(sendLabel(packet, draft)).toBe('Approve plan and assets');
@@ -177,7 +177,7 @@ describe('stage flow helpers', () => {
 
 describe('split into layers', () => {
   test('only an asset revise splits, and the send label counts it apart from notes', async () => {
-    const { isSplit, sendLabel } = await import('./plan-model');
+    const { isSplit, sendLabel } = await import('./plan-model.ts');
     let draft = newPlanDraft(packet);
     expect(() => decide(draft, rule, 'revise', { feedback: 'x', split: true })).toThrow('split');
     expect(() => decide(draft, figure, 'approve', { split: true })).toThrow('split');
@@ -189,7 +189,7 @@ describe('split into layers', () => {
     expect(sendLabel(packet, draft)).toBe('Send notes (1 to split)');
   });
   test('layers of a split region are linked to the note that asked for them', async () => {
-    const { priorRound } = await import('./plan-model');
+    const { priorRound } = await import('./plan-model.ts');
     const history: any = { packet, submitted: true, changes: { 'figure-frame': { kind: 'added', files: [], reasons: [] } }, feedback: { figure: { round: 1, decision: { action: 'revise', split: true, feedback: 'Shutters apart' } } } };
     expect(priorRound('figure-frame', history)).toMatchObject({ action: 'split', words: 'Shutters apart', splitFrom: 'Hero figure', round: 1 });
     expect(priorRound('figurehead', history)).toBeNull();
