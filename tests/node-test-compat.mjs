@@ -248,6 +248,10 @@ function makeMatchers(actual, negated = false) {
       if (pass && typeof expected === 'function') pass = thrown instanceof expected;
       assertPass(pass, negated, `Expected function ${negated ? 'not ' : ''}to throw`);
     },
+    toBeCloseTo(expected, precision = 2) {
+      const tolerance = 0.5 * 10 ** (-precision);
+      assertPass(Math.abs(actual - expected) < tolerance, negated, `Expected ${actual} ${negated ? 'not ' : ''}to be close to ${expected} at precision ${precision}`);
+    },
     toBeGreaterThan(expected) {
       assertPass(actual > expected, negated, `Expected ${actual} ${negated ? 'not ' : ''}to be greater than ${expected}`);
     },
